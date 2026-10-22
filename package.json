@@ -1,0 +1,39 @@
+{
+  "name": "tfview",
+  "version": "0.1.0",
+  "description": "Review Terraform plan diffs with GitHub-style \"Viewed\" checkboxes that survive re-plans",
+  "type": "module",
+  "bin": {
+    "tfview": "dist/bin/tfview.js"
+  },
+  "files": [
+    "dist/bin",
+    "dist/src",
+    "README.md"
+  ],
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "build": "npm run clean && tsc && node -e \"require('fs').cpSync('src/template.html','dist/src/template.html')\"",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "prepare": "npm run build"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "keywords": [
+    "terraform",
+    "opentofu",
+    "plan",
+    "review",
+    "diff"
+  ],
+  "license": "MIT",
+  "volta": {
+    "node": "24.22.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "^7.0.2"
+  }
+}
