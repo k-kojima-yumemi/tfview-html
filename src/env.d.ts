@@ -1,6 +1,7 @@
 // Modules provided by the build plugins in build/plugins.ts.
 
-declare module "*.html" {
+declare module "*?text" {
+  /** The file's contents (see textImport). */
   const text: string;
   export default text;
 }

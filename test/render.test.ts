@@ -2,51 +2,107 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, it } from "vitest";
 import { fileURLToPath } from "node:url";
+import { Window } from "happy-dom";
+import { describe, it } from "vitest";
+import { Document, jsonForScript } from "../src/document.tsx";
 import { buildViewData, generate } from "../src/generate.ts";
-import { embedJson, renderHtml } from "../src/render.ts";
+import { renderHtml } from "../src/render.ts";
+import type { PlanJson } from "../src/tree.ts";
 import { FIXTURE_PLAN, loadFixture } from "./helpers.ts";
 
-const extractData = (html: string) => JSON.parse(/<script type="application\/json" id="tfview-data">(.*?)<\/script>/s.exec(html)![1]!);
+/** Parses without running scripts, the way a browser builds the DOM. */
+function parse(html: string): Document {
+  const window = new Window();
+  return new window.DOMParser().parseFromString(html, "text/html") as unknown as Document;
+}
 
-describe("embedJson", () => {
-  it("escapes < so values cannot close the script tag", () => {
-    const out = embedJson({ v: "</script><!-- x" });
-    assert.ok(!out.includes("<"));
-    assert.deepEqual(JSON.parse(out), { v: "</script><!-- x" });
+const dataOf = (doc: Document) => JSON.parse(doc.getElementById("tfview-data")!.textContent!);
+
+// Tries to close the element, open a new script, inject a handler, and open a comment.
+const PAYLOAD = `</script><script>window.__xss=1</script><img src=x onerror="window.__xss=1"><!--`;
+
+const hostilePlan: PlanJson = {
+  terraform_version: PAYLOAD,
+  resource_changes: [
+    {
+      address: `module.m["${PAYLOAD}"].aws_x.y["${PAYLOAD}"]`,
+      module_address: `module.m["${PAYLOAD}"]`,
+      change: {
+        actions: ["update"],
+        before: { id: PAYLOAD, name: "a", tags: { [PAYLOAD]: PAYLOAD } },
+        after: { id: PAYLOAD, name: PAYLOAD, tags: { [PAYLOAD]: `${PAYLOAD}2` } },
+        importing: { id: PAYLOAD },
+      },
+    },
+  ],
+};
+
+describe("jsonForScript", () => {
+  it("leaves no character that could end the element or open a comment", () => {
+    const out = jsonForScript({ v: PAYLOAD, w: "a&b>c" });
+    assert.ok(!/[<>&]/.test(out));
+    assert.deepEqual(JSON.parse(out), { v: PAYLOAD, w: "a&b>c" });
   });
 
   it("escapes line separators", () => {
-    const out = embedJson({ v: "a\u2028b\u2029c" });
+    const out = jsonForScript({ v: "a\u2028b\u2029c" });
     assert.ok(!/[\u2028\u2029]/.test(out));
     assert.deepEqual(JSON.parse(out), { v: "a\u2028b\u2029c" });
   });
 });
 
 describe("renderHtml", () => {
-  const data = buildViewData(loadFixture(), { cwd: "/work/infra", source: "tfplan", now: new Date(0) });
-
   it("embeds the data, which round-trips", async () => {
-    const html = await renderHtml(data);
-    assert.deepEqual(extractData(html), data);
+    const data = buildViewData(loadFixture(), { cwd: "/work/infra", source: "tfplan", now: new Date(0) });
+    assert.deepEqual(dataOf(parse(await renderHtml(data))), data);
   });
 
   it("does not contain sensitive values", async () => {
     const raw = await readFile(FIXTURE_PLAN, "utf8");
     assert.ok(raw.includes("hunter2"), "fixture should contain the secret in plaintext");
-    const html = await renderHtml(data);
-    assert.ok(!html.includes("hunter2"));
-  });
-
-  it("keeps a single script-closing tag per script", async () => {
-    const html = await renderHtml(data);
-    assert.equal(html.match(/<\/script>/g)!.length, 2);
+    const data = buildViewData(loadFixture(), { cwd: "/work/infra", source: "tfplan" });
+    assert.ok(!(await renderHtml(data)).includes("hunter2"));
   });
 
   it("does not depend on external resources", async () => {
+    const data = buildViewData(loadFixture(), { cwd: "/work/infra", source: "tfplan" });
+    const doc = parse(await renderHtml(data));
+    assert.equal(doc.querySelectorAll("script[src], link[href], img, iframe").length, 0);
+  });
+});
+
+describe("renderHtml with hostile input", () => {
+  const data = buildViewData(hostilePlan, { cwd: "/work", source: `plan${PAYLOAD}.json` });
+
+  it("keeps the document structure: exactly our two scripts, nothing injected", async () => {
+    const doc = parse(await renderHtml(data));
+    const scripts = [...doc.querySelectorAll("script")];
+    assert.equal(scripts.length, 2);
+    assert.equal(scripts[0]!.getAttribute("type"), "application/json");
+    assert.equal(doc.querySelectorAll("img, iframe, object, embed").length, 0);
+    assert.equal(doc.body.children.length, 3);
+  });
+
+  it("round-trips the hostile values exactly", async () => {
+    assert.deepEqual(dataOf(parse(await renderHtml(data))), data);
+  });
+
+  it("escapes the title", async () => {
+    const doc = parse(await renderHtml(data));
+    assert.equal(doc.title, `tfview · plan${PAYLOAD}.json`);
+    assert.equal(doc.head.querySelectorAll("script").length, 0);
+  });
+
+  it("never writes the payload's markup literally", async () => {
     const html = await renderHtml(data);
-    assert.ok(!/<(script|link)[^>]+(src|href)=/i.test(html));
+    assert.ok(!html.includes("<script>window.__xss"));
+    assert.ok(!html.includes("<img"));
+  });
+
+  it("refuses inline code that could close its element", () => {
+    assert.throws(() => Document({ data, css: "", client: 'console.log("</script>")' }), /break out/);
+    assert.throws(() => Document({ data, css: "a{}</style>", client: "" }), /break out/);
   });
 });
 
@@ -56,7 +112,7 @@ describe("generate", () => {
     try {
       const { path, data } = await generate({ planfile: fileURLToPath(FIXTURE_PLAN), out: "out.html", bin: "terraform", cwd: dir });
       assert.equal(path, join(dir, "out.html"));
-      assert.deepEqual(extractData(await readFile(path, "utf8")), data);
+      assert.deepEqual(dataOf(parse(await readFile(path, "utf8"))), data);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

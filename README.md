@@ -121,18 +121,19 @@ npm test           # Vitest
 node dist/tfview.js test/fixtures/plan.json --no-open
 ```
 
-- `dist/tfview.js` は、CLI、UI(TSX + `hono/jsx/dom`)、HTML テンプレートをすべて含んだ1ファイルです。実行時の依存はないので、このファイルだけを渡せば `node tfview.js tfplan` で動きます。
+- `dist/tfview.js` は、CLI、UI(TSX + `hono/jsx/dom`)、CSS をすべて含んだ1ファイルです。実行時の依存はないので、このファイルだけを渡せば `node tfview.js tfplan` で動きます。
 - UI は `src/client/app.tsx` を Rolldown で IIFE にまとめたものです。生成する HTML にインラインで埋め込みます。
-- `build/plugins.ts` のプラグイン(`.html` を文字列として import する、UI をまとめて文字列にする)は、Rolldown のビルドと Vitest の両方で使います。
+- `build/plugins.ts` のプラグイン(`?text` 付きの import でファイルを文字列として読む、UI をまとめて文字列にする)は、Rolldown のビルドと Vitest の両方で使います。
 
 ```
 bin/tfview.ts        CLI エントリ(引数解析、生成、ブラウザを開く)
 src/show.ts          入力判別、terraform show -json の実行
 src/tree.ts          plan JSON -> module/resource/line のツリー、行の展開と表示用の入れ子、sensitive のマスク
 src/hash.ts          canonical JSON、キー計算
-src/render.ts        テンプレートにデータと UI を埋め込む
+src/render.ts        HTML を生成する
+src/document.tsx     HTML 文書(サーバー側の hono/jsx)。値のエスケープは JSX に任せ、<script> に入れる JSON だけ jsonForScript で直列化する
 src/generate.ts      上記をつなぐ
-src/template.html    HTML / CSS
+src/styles.css       CSS
 src/client/app.tsx   UI(hono/jsx/dom)
 src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ、インポート)。DOM に依存しない純粋な関数
 src/client/storage.ts localStorage の読み書き

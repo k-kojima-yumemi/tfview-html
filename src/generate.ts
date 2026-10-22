@@ -43,6 +43,6 @@ export async function generate(opts: GenerateOptions): Promise<{ path: string; d
     showSensitive: opts.showSensitive ?? false,
   });
   const path = resolve(opts.cwd, opts.out);
-  await writeFile(path, renderHtml(data), "utf8");
+  await writeFile(path, await renderHtml(data), "utf8");
   return { path, data };
 }
