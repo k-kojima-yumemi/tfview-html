@@ -2,8 +2,7 @@ import { readFileSync } from "node:fs";
 import type { PlanJson } from "../src/tree.ts";
 import type { ViewModule, ViewResource } from "../src/types.ts";
 
-// Tests run from dist/test/, fixtures stay in test/fixtures/.
-export const FIXTURE_PLAN = new URL("../../test/fixtures/plan.json", import.meta.url);
+export const FIXTURE_PLAN = new URL("./fixtures/plan.json", import.meta.url);
 
 export function loadFixture(): PlanJson {
   return JSON.parse(readFileSync(FIXTURE_PLAN, "utf8")) as PlanJson;

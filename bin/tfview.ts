@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { generate } from "../src/generate.ts";
 import { UserError } from "../src/show.ts";
+import pkg from "../package.json" with { type: "json" };
 
 const USAGE = `Usage: tfview <planfile> [options]
 
@@ -17,12 +17,6 @@ Options:
                     sensitive な値も HTML に埋め込んで表示する (既定: OFF。HTML の扱いに注意)
   -h, --help        このヘルプを表示
   -v, --version     バージョンを表示`;
-
-function version(): string {
-  // dist/bin/tfview.js -> package.json
-  const pkg = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8")) as { version: string };
-  return pkg.version;
-}
 
 function openInBrowser(path: string): void {
   const [cmd, args] =
@@ -71,7 +65,7 @@ async function main(argv: string[]): Promise<number> {
     return 0;
   }
   if (values.version) {
-    console.log(version());
+    console.log(pkg.version);
     return 0;
   }
   if (positionals.length !== 1) {

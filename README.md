@@ -111,25 +111,33 @@ npx tfview plan.json
 
 ## 開発
 
-Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定しています。実行時の要件は Node.js 18 以上です。
+Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定しています。
 
 ```sh
-npm install        # devDependencies(typescript, @types/node)を入れ、prepare でビルドする
-npm run build      # dist/ に出力
-npm test           # ビルドして node:test を実行
-node dist/bin/tfview.js test/fixtures/plan.json --no-open
+npm install        # devDependencies を入れ、prepare でビルドする
+npm run build      # Rolldown で dist/tfview.js を1本だけ出力
+npm run typecheck  # tsc(型チェックのみ。出力はしない)
+npm test           # Vitest
+node dist/tfview.js test/fixtures/plan.json --no-open
 ```
+
+- `dist/tfview.js` は、CLI、UI(TSX + `hono/jsx/dom`)、HTML テンプレートをすべて含んだ1ファイルです。実行時の依存はないので、このファイルだけを渡せば `node tfview.js tfplan` で動きます。
+- UI は `src/client/app.tsx` を Rolldown で IIFE にまとめたものです。生成する HTML にインラインで埋め込みます。
+- `build/plugins.ts` のプラグイン(`.html` を文字列として import する、UI をまとめて文字列にする)は、Rolldown のビルドと Vitest の両方で使います。
 
 ```
 bin/tfview.ts        CLI エントリ(引数解析、生成、ブラウザを開く)
 src/show.ts          入力判別、terraform show -json の実行
-src/tree.ts          plan JSON -> module/resource/line のツリー、行の展開、sensitive のマスク
+src/tree.ts          plan JSON -> module/resource/line のツリー、行の展開と表示用の入れ子、sensitive のマスク
 src/hash.ts          canonical JSON、キー計算
-src/render.ts        テンプレートにデータとクライアント JS を埋め込む
+src/render.ts        テンプレートにデータと UI を埋め込む
 src/generate.ts      上記をつなぐ
-src/template.html    UI の HTML / CSS
-src/client/app.ts    UI の振る舞い(ビルド後の JS を HTML にインライン化)
-test/                node:test による単体テスト
+src/template.html    HTML / CSS
+src/client/app.tsx   UI(hono/jsx/dom)
+src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ、インポート)。DOM に依存しない純粋な関数
+src/client/storage.ts localStorage の読み書き
+build/plugins.ts     Rolldown / Vitest 共用のプラグイン
+test/                Vitest の単体テスト
 test/fixtures/       検証用の plan.json
 ```
 

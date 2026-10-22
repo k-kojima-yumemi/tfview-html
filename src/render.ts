@@ -1,9 +1,6 @@
-import { readFile } from "node:fs/promises";
+import client from "virtual:tfview-client";
+import template from "./template.html";
 import type { ViewData } from "./types.ts";
-
-// Both files sit next to this module after `npm run build` (dist/src/).
-const TEMPLATE_URL = new URL("./template.html", import.meta.url);
-const CLIENT_URL = new URL("./client/app.js", import.meta.url);
 
 /** JSON that is safe inside `<script type="application/json">`, even if values contain `</script>` or `<!--`. */
 export function embedJson(value: unknown): string {
@@ -18,8 +15,7 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 }
 
-export async function renderHtml(data: ViewData): Promise<string> {
-  const [template, client] = await Promise.all([readFile(TEMPLATE_URL, "utf8"), readFile(CLIENT_URL, "utf8")]);
+export function renderHtml(data: ViewData): string {
   const replacements: Record<string, string> = {
     "<!--TFVIEW_TITLE-->": escapeHtml(`tfview · ${data.source}`),
     "/*TFVIEW_DATA*/": embedJson(data),

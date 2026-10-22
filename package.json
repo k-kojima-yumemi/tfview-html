@@ -4,18 +4,16 @@
   "description": "Review Terraform plan diffs with GitHub-style \"Viewed\" checkboxes that survive re-plans",
   "type": "module",
   "bin": {
-    "tfview": "dist/bin/tfview.js"
+    "tfview": "dist/tfview.js"
   },
   "files": [
-    "dist/bin",
-    "dist/src",
+    "dist/tfview.js",
     "README.md"
   ],
   "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
-    "build": "npm run clean && tsc && node -e \"require('fs').cpSync('src/template.html','dist/src/template.html')\"",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test \"dist/test/**/*.test.js\"",
+    "build": "rolldown -c",
+    "typecheck": "tsc",
+    "test": "vitest run",
     "prepare": "npm run build"
   },
   "engines": {
@@ -34,6 +32,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
-    "typescript": "^7.0.2"
+    "hono": "^4.13.13",
+    "rolldown": "^1.2.14",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
   }
 }

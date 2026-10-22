@@ -1,21 +1,22 @@
 {
+  // Type checking only: Rolldown builds dist/tfview.js and Vitest runs the tests.
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"],
-    "rootDir": ".",
-    "outDir": "dist",
+    "jsx": "react-jsx",
+    "jsxImportSource": "hono/jsx/dom",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
-    "rewriteRelativeImportExtensions": true,
-    "skipLibCheck": true,
-    "sourceMap": false,
-    "declaration": false
+    "skipLibCheck": true
   },
-  "include": ["bin/**/*.ts", "src/**/*.ts", "test/**/*.ts"]
+  "include": ["bin/**/*.ts", "src/**/*.ts", "src/**/*.tsx", "test/**/*.ts", "build/**/*.ts", "*.config.ts"]
 }

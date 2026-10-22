@@ -212,33 +212,9 @@ body:not(.g-line) .row > .cb { display: none; }
 </style>
 </head>
 <body>
-<header class="bar">
-  <div class="bar-row">
-    <span class="brand">tfview</span>
-    <span class="meta" id="meta"></span>
-    <span class="spacer"></span>
-    <div class="seg" role="radiogroup" aria-label="確認の粒度" id="granularity">
-      <button type="button" role="radio" data-g="module">module</button>
-      <button type="button" role="radio" data-g="resource">resource</button>
-      <button type="button" role="radio" data-g="line">line</button>
-    </div>
-    <div class="progress">
-      <span id="progress-text"></span>
-      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
-    </div>
-    <div class="actions">
-      <button type="button" id="btn-export" title="確認済み状態を JSON ファイルに書き出す">エクスポート</button>
-      <button type="button" id="btn-import" title="JSON ファイルから確認済み状態を読み込む">インポート</button>
-      <button type="button" id="btn-reset" title="確認済み状態をすべて消す">リセット</button>
-      <input type="file" id="file-import" accept=".json,application/json" hidden>
-    </div>
-  </div>
-  <div class="carry" id="carry"></div>
-  <div class="notice" id="notice" role="status"></div>
-</header>
-<main id="tree"></main>
+<div id="app"></div>
 <script type="application/json" id="tfview-data">/*TFVIEW_DATA*/</script>
-<script type="module">
+<script>
 /*TFVIEW_CLIENT*/
 </script>
 </body>

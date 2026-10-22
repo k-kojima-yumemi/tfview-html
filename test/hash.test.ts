@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { canonical, lineKey, projectId, UNKNOWN } from "../src/hash.ts";
 import { buildTree, type PlanJson } from "../src/tree.ts";
 import type { ViewModule } from "../src/types.ts";

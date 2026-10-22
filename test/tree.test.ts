@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it } from "vitest";
 import { badgeFor, buildTree, expandLines, expandResource, formatPath, ROOT_MODULE } from "../src/tree.ts";
 import type { DisplayItem } from "../src/types.ts";
 import { findResource, loadFixture } from "./helpers.ts";
