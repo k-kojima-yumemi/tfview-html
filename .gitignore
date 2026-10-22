@@ -1,0 +1,7 @@
+node_modules/
+dist/
+tfview.html
+tfplan
+# Real plans can contain account IDs and secrets.
+sample/
+tfview-spec.md
