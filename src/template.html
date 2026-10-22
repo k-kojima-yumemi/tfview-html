@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title><!--TFVIEW_TITLE--></title>
+<style>
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f6f8fa;
+  --bg-hover: #eef1f4;
+  --fg: #1f2328;
+  --fg-muted: #59636e;
+  --border: #d1d9e0;
+  --accent: #0969da;
+  --add-fg: #1a7f37;
+  --add-bg: #dafbe1;
+  --del-fg: #cf222e;
+  --del-bg: #ffebe9;
+  --chg-fg: #9a6700;
+  --chg-bg: #fff8c5;
+  --warn-fg: #bc4c00;
+  --warn-bg: #fff1e5;
+  --info-fg: #8250df;
+  --info-bg: #fbefff;
+  --sensitive: #818b98;
+  --done: #59636e;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Sans", "Noto Sans JP", sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1117;
+    --bg-subtle: #151b23;
+    --bg-hover: #1c2330;
+    --fg: #e6edf3;
+    --fg-muted: #9198a1;
+    --border: #3d444d;
+    --accent: #4493f8;
+    --add-fg: #3fb950;
+    --add-bg: rgba(46, 160, 67, 0.15);
+    --del-fg: #f85149;
+    --del-bg: rgba(248, 81, 73, 0.15);
+    --chg-fg: #d29922;
+    --chg-bg: rgba(187, 128, 9, 0.15);
+    --warn-fg: #f0883e;
+    --warn-bg: rgba(219, 109, 40, 0.15);
+    --info-fg: #ab7df8;
+    --info-bg: rgba(171, 125, 248, 0.15);
+    --sensitive: #7d8590;
+    --done: #9198a1;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.5 var(--sans);
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 10px;
+  cursor: pointer;
+}
+button:hover { background: var(--bg-hover); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---- top bar ---- */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+}
+.bar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.brand { font-weight: 600; }
+.meta { color: var(--fg-muted); font-size: 12px; }
+.spacer { flex: 1; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; background: var(--bg); }
+.seg button + button { border-left: 1px solid var(--border); }
+.seg button[aria-checked="true"] { background: var(--accent); color: #fff; }
+.progress { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.progress-bar { width: 140px; height: 4px; border-radius: 2px; background: var(--border); overflow: hidden; }
+.progress-fill { height: 100%; width: 0; background: var(--add-fg); transition: width .15s; }
+.actions { display: flex; gap: 6px; }
+.notice { margin-top: 6px; font-size: 12px; color: var(--fg-muted); }
+.notice:empty { display: none; }
+.carry { margin-top: 6px; font-size: 12px; color: var(--fg-muted); display: flex; gap: 12px; flex-wrap: wrap; }
+.carry:empty { display: none; }
+
+/* ---- tree ---- */
+main { padding: 12px 16px 64px; }
+.empty { color: var(--fg-muted); padding: 32px 0; text-align: center; }
+.module { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 10px 4px 6px;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.module > .head { background: var(--bg-subtle); font-weight: 600; }
+.module.collapsed > .head { border-bottom: 0; }
+.module > .children { border-top: 1px solid var(--border); }
+.resource + .resource { border-top: 1px solid var(--border); }
+.resource > .head { padding-left: 22px; }
+.resource > .head:hover, .module > .head:hover { background: var(--bg-hover); }
+.collapsed > .children { display: none; }
+.caret {
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 18px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--fg-muted);
+  border-radius: 4px;
+  transition: transform .1s;
+  flex: none;
+}
+.caret:hover { background: var(--border); }
+.node:not(.collapsed) > .head > .caret { transform: rotate(90deg); }
+.caret.hidden { visibility: hidden; }
+input[type="checkbox"] { margin: 0; width: 15px; height: 15px; flex: none; cursor: pointer; accent-color: var(--add-fg); }
+.cb-off { display: none; }
+.name { overflow-wrap: anywhere; }
+.done > .head .name { color: var(--done); }
+.status { color: var(--fg-muted); font-family: var(--sans); font-size: 12px; font-weight: 400; white-space: nowrap; }
+.head .spacer { min-width: 8px; }
+.tag {
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 6px;
+  border-radius: 10px;
+  white-space: nowrap;
+  line-height: 18px;
+}
+.tag-carried { color: var(--fg-muted); border: 1px solid var(--border); }
+.tag-updated { color: var(--info-fg); background: var(--info-bg); }
+.tag-force { color: var(--warn-fg); background: var(--warn-bg); font-weight: 600; }
+.tag-import { color: var(--accent); border: 1px solid var(--accent); }
+.tag-sensitive { color: var(--sensitive); border: 1px dashed var(--sensitive); }
+.warn { margin-top: 6px; font-size: 12px; color: var(--warn-fg); background: var(--warn-bg); border-radius: 6px; padding: 4px 8px; }
+.badge {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 12px;
+  min-width: 30px;
+  text-align: center;
+  border-radius: 4px;
+  padding: 0 4px;
+  flex: none;
+}
+.op-add { color: var(--add-fg); background: var(--add-bg); }
+.op-del { color: var(--del-fg); background: var(--del-bg); }
+.op-chg { color: var(--chg-fg); background: var(--chg-bg); }
+.op-rep { color: var(--warn-fg); background: var(--warn-bg); }
+.op-imp { color: var(--accent); background: var(--bg-subtle); font-family: var(--sans); font-size: 11px; }
+.op-other { color: var(--fg-muted); background: var(--bg-subtle); }
+.counts { display: inline-flex; gap: 6px; font-family: var(--mono); font-size: 12px; font-weight: 400; }
+.counts .c-add { color: var(--add-fg); }
+.counts .c-chg { color: var(--chg-fg); }
+.counts .c-del { color: var(--del-fg); }
+.counts .c-rep { color: var(--warn-fg); }
+.counts .c-imp { color: var(--accent); font-family: var(--sans); }
+
+/* ---- lines (Terraform plan style) ---- */
+.lines { padding: 4px 0 8px; }
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0 10px 0 48px;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.row.line:hover { background: var(--bg-hover); }
+.row > input { margin-top: 3px; }
+.cb-space { width: 15px; flex: none; }
+body:not(.g-line) .row > .cb { display: none; }
+.row .sign { width: 12px; flex: none; font-weight: 700; text-align: center; }
+.code { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; padding-left: calc(var(--d, 0) * 4ch); }
+.l-add > .sign, .l-add > .code > .path { color: var(--add-fg); }
+.l-del > .sign, .l-del > .code > .path { color: var(--del-fg); }
+.l-chg > .sign, .l-chg > .code > .path { color: var(--chg-fg); }
+.row .eq, .row .arrow, .row .punct { color: var(--fg-muted); }
+.row.ctx .code, .row.grp-close .code { color: var(--fg-muted); }
+.row.comment .code { color: var(--fg-muted); font-style: italic; }
+.row.comment.import .code { color: var(--accent); }
+.row.done { opacity: .5; }
+.row.line.done .path { text-decoration: line-through; text-decoration-color: var(--fg-muted); }
+.row .tag { margin-left: 8px; vertical-align: 1px; }
+.head .action { color: var(--fg-muted); font-family: var(--sans); font-size: 12px; font-weight: 400; white-space: nowrap; }
+.val { white-space: pre-wrap; }
+.val.clip { cursor: pointer; border-bottom: 1px dotted var(--fg-muted); }
+.val-unknown { color: var(--info-fg); font-style: italic; font-weight: 600; }
+.val-sensitive { color: var(--sensitive); font-style: italic; }
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-row">
+    <span class="brand">tfview</span>
+    <span class="meta" id="meta"></span>
+    <span class="spacer"></span>
+    <div class="seg" role="radiogroup" aria-label="確認の粒度" id="granularity">
+      <button type="button" role="radio" data-g="module">module</button>
+      <button type="button" role="radio" data-g="resource">resource</button>
+      <button type="button" role="radio" data-g="line">line</button>
+    </div>
+    <div class="progress">
+      <span id="progress-text"></span>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+    <div class="actions">
+      <button type="button" id="btn-export" title="確認済み状態を JSON ファイルに書き出す">エクスポート</button>
+      <button type="button" id="btn-import" title="JSON ファイルから確認済み状態を読み込む">インポート</button>
+      <button type="button" id="btn-reset" title="確認済み状態をすべて消す">リセット</button>
+      <input type="file" id="file-import" accept=".json,application/json" hidden>
+    </div>
+  </div>
+  <div class="carry" id="carry"></div>
+  <div class="notice" id="notice" role="status"></div>
+</header>
+<main id="tree"></main>
+<script type="application/json" id="tfview-data">/*TFVIEW_DATA*/</script>
+<script type="module">
+/*TFVIEW_CLIENT*/
+</script>
+</body>
+</html>
