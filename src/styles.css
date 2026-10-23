@@ -1,4 +1,6 @@
 :root {
+  --bar-height: 0px;
+  --module-head-height: 36px;
   --bg: #ffffff;
   --bg-subtle: #f6f8fa;
   --bg-hover: #eef1f4;
@@ -96,7 +98,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 /* ---- tree ---- */
 main { padding: 12px 16px 64px; }
 .empty { color: var(--fg-muted); padding: 32px 0; text-align: center; }
-.module { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+/* No overflow: hidden here: it would stop the headers below from sticking. */
+.module { border: 1px solid var(--border); border-radius: 8px; margin-bottom: 12px; }
 .head {
   display: flex;
   align-items: center;
@@ -106,8 +109,26 @@ main { padding: 12px 16px 64px; }
   font-family: var(--mono);
   font-size: 13px;
 }
-.module > .head { background: var(--bg-subtle); font-weight: 600; }
-.module.collapsed > .head { border-bottom: 0; }
+/* Module headers stick below the top bar, resource headers below the module header. */
+.module > .head {
+  position: sticky;
+  top: var(--bar-height);
+  z-index: 3;
+  height: var(--module-head-height);
+  border-radius: 7px 7px 0 0;
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+.module.collapsed > .head { border-bottom: 0; border-radius: 7px; }
+/* A fixed-height module header keeps the resource headers' offset exact. */
+.module > .head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.resource > .head {
+  position: sticky;
+  top: calc(var(--bar-height) + var(--module-head-height));
+  z-index: 2;
+  background: var(--bg);
+}
+.resource:last-child.collapsed > .head { border-radius: 0 0 7px 7px; }
 .module > .children { border-top: 1px solid var(--border); }
 .resource + .resource { border-top: 1px solid var(--border); }
 .resource > .head { padding-left: 22px; }

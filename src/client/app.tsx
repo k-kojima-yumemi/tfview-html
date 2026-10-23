@@ -1,4 +1,4 @@
-// Browser side of tfview. Bundled by Rolldown (build/plugins.ts) and inlined into template.html.
+// Browser side of tfview. Bundled by Rolldown (build/plugins.ts) and inlined by document.tsx.
 import type { Child } from "hono/jsx";
 import {
     render,
@@ -633,6 +633,23 @@ function App({
     const [storageOk, setStorageOk] = useState(storageAvailable());
     const [flash, setFlash] = useState<string | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
+    const bar = useRef<HTMLElement>(null);
+
+    // Module and resource headers stick right below the top bar, whose height changes
+    // with the window width and with the notices shown in it.
+    useLayoutEffect(() => {
+        const el = bar.current;
+        if (!el) return;
+        const update = () =>
+            document.documentElement.style.setProperty(
+                "--bar-height",
+                `${el.offsetHeight}px`,
+            );
+        update();
+        const observer = new ResizeObserver(update);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     // Saved synchronously on every change (not in an effect), so closing the tab right after a click loses nothing.
     const commit = (next: ReviewState) => {
@@ -664,8 +681,14 @@ function App({
         carried,
         updated: initial.updated,
         showSensitive: data.showSensitive === true,
-        onToggle: (node) => commit(toggleNode(model, current(), node)),
-        onFold: (node) => commit(toggleCollapsed(current(), node.id)),
+        onToggle: (node) => {
+            commit(toggleNode(model, current(), node));
+            keepInView(node);
+        },
+        onFold: (node) => {
+            commit(toggleCollapsed(current(), node.id));
+            keepInView(node);
+        },
     };
 
     const onReset = () => {
@@ -717,7 +740,7 @@ function App({
 
     return (
         <>
-            <header class="bar">
+            <header class="bar" ref={bar}>
                 <div class="bar-row">
                     <span class="brand">tfview</span>
                     <span class="meta">{meta.join(" · ")}</span>
@@ -824,6 +847,38 @@ function App({
                 )}
             </main>
         </>
+    );
+}
+
+/** Height of a sticky header layer, from the CSS custom property that positions it. */
+function cssPixels(name: string): number {
+    return (
+        Number.parseFloat(
+            getComputedStyle(document.documentElement).getPropertyValue(name),
+        ) || 0
+    );
+}
+
+/**
+ * After a check or fold from a sticky header, the node may have shrunk so its
+ * header is now above the viewport. Scroll it back to just below the sticky layers.
+ */
+function keepInView(node: TreeNode): void {
+    const target = node.level === 2 ? node.parent : node;
+    if (!target) return;
+    // Wait for the re-render, then for layout.
+    setTimeout(() =>
+        requestAnimationFrame(() => {
+            const el = document.querySelector(
+                `[data-id="${CSS.escape(target.id)}"]`,
+            );
+            if (!el) return;
+            const offset =
+                cssPixels("--bar-height") +
+                (target.level === 1 ? cssPixels("--module-head-height") : 0);
+            const top = el.getBoundingClientRect().top;
+            if (top < offset) window.scrollBy({ top: top - offset });
+        }),
     );
 }
 
