@@ -26,6 +26,8 @@ export interface PlanJson {
 
 export interface ResourceChange {
     address: string;
+    /** Set when a `moved` block (or a refactor Terraform detects) changed the address. */
+    previous_address?: string;
     module_address?: string;
     deposed?: string;
     change: {
@@ -86,11 +88,12 @@ export function buildTree(
 
     for (const rc of changes) {
         const actions = rc.change.actions;
-        // An import without changes is a no-op, but still something to review.
+        // An import or a move without changes is a no-op, but still something to review.
         if (
             actions.length === 1 &&
             actions.every((a) => skippedActions.has(a)) &&
-            !rc.change.importing
+            !rc.change.importing &&
+            !rc.previous_address
         )
             continue;
 
@@ -166,16 +169,21 @@ function buildResource(rc: ResourceChange, opts: LineOptions): ViewResource {
         : rc.address;
     const { actions } = rc.change;
     const importing = importSource(rc.change.importing);
+    const movedFrom = rc.previous_address || undefined;
     const res: ViewResource = {
         id: `r:${address}`,
         address,
         actions,
-        badge: badgeFor(actions, importing !== undefined),
-        resourceKey: resourceKey(address, actions, importing),
+        badge: badgeFor(actions, {
+            importing: importing !== undefined,
+            moved: movedFrom !== undefined,
+        }),
+        resourceKey: resourceKey(address, actions, { importing, movedFrom }),
         slot: slotKey(address),
         ...expandResource(address, rc.change, opts),
     };
     if (importing !== undefined) res.importing = importing;
+    if (movedFrom !== undefined) res.movedFrom = movedFrom;
     return res;
 }
 
@@ -191,11 +199,14 @@ function importSource(
     return "";
 }
 
-export function badgeFor(actions: readonly string[], importing = false): Badge {
+export function badgeFor(
+    actions: readonly string[],
+    { importing = false, moved = false } = {},
+): Badge {
     const joined = actions.join(",");
     switch (joined) {
         case "no-op":
-            return importing ? "import" : joined;
+            return importing ? "import" : moved ? "moved" : joined;
         case "create":
             return "+";
         case "delete":

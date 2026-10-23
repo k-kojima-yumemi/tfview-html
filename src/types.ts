@@ -3,7 +3,7 @@
 /** `+` create, `-` delete, `~` update (both sides present). */
 export type LineOp = "+" | "-" | "~";
 
-/** `+`, `-`, `~`, `-/+`, `import` (import only), or the raw actions for anything else (e.g. `forget`). */
+/** `+`, `-`, `~`, `-/+`, `import` (import only), `moved` (move only), or the raw actions for anything else (e.g. `forget`). */
 export type Badge = string;
 
 export interface ViewLine {
@@ -88,6 +88,8 @@ export interface ViewResource {
     display: DisplayItem[];
     /** Import ID (or identity JSON) when the resource is imported by an `import` block. */
     importing?: string;
+    /** Previous address when the resource moved (a `moved` block or a detected refactor). */
+    movedFrom?: string;
     hidden?: Hidden;
 }
 

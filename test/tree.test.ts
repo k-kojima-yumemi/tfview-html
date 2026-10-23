@@ -581,6 +581,65 @@ describe("reorderable lists", () => {
     });
 });
 
+describe("moves", () => {
+    const moved = (actions: string[], previous: string, after = "b") =>
+        buildTree({
+            resource_changes: [
+                {
+                    address: "module.new.aws_lb_target_group.blue",
+                    previous_address: previous,
+                    change: {
+                        actions,
+                        before: { id: "tg-1", name: "a" },
+                        after: { id: "tg-1", name: after },
+                    },
+                },
+            ],
+        });
+    const address = "module.new.aws_lb_target_group.blue";
+
+    it("shows a move without changes instead of dropping it as a no-op", () => {
+        const res = findResource(
+            moved(["no-op"], "module.old.aws_lb_target_group.blue", "a"),
+            address,
+        );
+        assert.equal(res.badge, "moved");
+        assert.equal(res.movedFrom, "module.old.aws_lb_target_group.blue");
+        assert.deepEqual(res.lines, []);
+    });
+
+    it("keeps the previous address on a moved update", () => {
+        const res = findResource(
+            moved(["update"], "module.old.aws_lb_target_group.blue"),
+            address,
+        );
+        assert.equal(res.badge, "~");
+        assert.equal(res.movedFrom, "module.old.aws_lb_target_group.blue");
+        assert.deepEqual(
+            res.lines.map((l) => l.path),
+            ["name"],
+        );
+    });
+
+    it("gives a different resourceKey for a different previous address", () => {
+        const a = findResource(moved(["no-op"], "module.a.x.y", "a"), address);
+        const b = findResource(moved(["no-op"], "module.b.x.y", "a"), address);
+        assert.notEqual(a.resourceKey, b.resourceKey);
+    });
+
+    it("still drops a plain no-op", () => {
+        const tree = buildTree({
+            resource_changes: [
+                {
+                    address,
+                    change: { actions: ["no-op"], before: {}, after: {} },
+                },
+            ],
+        });
+        assert.deepEqual(tree, []);
+    });
+});
+
 describe("imports", () => {
     const imported = (
         actions: string[],

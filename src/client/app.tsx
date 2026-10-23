@@ -91,6 +91,7 @@ function opClass(badge: string): string {
         case "-/+":
             return "op-rep";
         case "import":
+        case "moved":
             return "op-imp";
         default:
             return "op-other";
@@ -245,10 +246,16 @@ function importComment(source: string): string {
     return `# (imported from ${source.startsWith("{") ? source : JSON.stringify(source)})`;
 }
 
+/** `# (moved from addr)`, as `terraform plan` prints it. */
+function movedComment(from: string): string {
+    return `# (moved from ${from})`;
+}
+
 function actionText(res: ViewResource): string {
     const actions = res.actions.join(",");
     if (actions === "no-op" && res.importing !== undefined)
         return "will be imported";
+    if (actions === "no-op" && res.movedFrom !== undefined) return "has moved";
     return actionTexts[actions] ?? res.actions.join(", ");
 }
 
@@ -545,7 +552,10 @@ function nodeClass(ctx: Ctx, node: TreeNode, base: string): string {
 
 function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
     const node = nodeOf(ctx.model, res.id);
-    const hasBody = res.lines.length > 0 || res.importing !== undefined;
+    const hasBody =
+        res.lines.length > 0 ||
+        res.importing !== undefined ||
+        res.movedFrom !== undefined;
     return (
         <div class={nodeClass(ctx, node, "resource")} data-id={res.id}>
             <NodeHead
@@ -565,12 +575,24 @@ function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
                         import
                     </span>
                 )}
+                {res.movedFrom !== undefined && res.badge !== "moved" && (
+                    <span class="tag tag-import" title={res.movedFrom}>
+                        moved
+                    </span>
+                )}
                 <span class="name">{res.address}</span>
                 <span class="action">{actionText(res)}</span>
             </NodeHead>
             {hasBody && (
                 <div class="children">
                     <div class="lines">
+                        {res.movedFrom !== undefined && (
+                            <PlainRow cls="comment import">
+                                <Code depth={0}>
+                                    {movedComment(res.movedFrom)}
+                                </Code>
+                            </PlainRow>
+                        )}
                         {res.importing !== undefined && (
                             <PlainRow cls="comment import">
                                 <Code depth={0}>
@@ -605,6 +627,7 @@ function Counts({ resources }: { resources: ViewResource[] }) {
         ["c-del", "-", count("-")],
         ["c-rep", "-/+", count("-/+")],
         ["c-imp", "import ", count("import")],
+        ["c-imp", "moved ", count("moved")],
     ];
     return (
         <span class="counts">

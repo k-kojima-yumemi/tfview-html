@@ -34,15 +34,22 @@ export function lineKey(
     return sha256(address, attrPath, canonical(before), canonical(after));
 }
 
-/** `importing` is the import source; a different source means a different change to confirm. */
+/**
+ * `importing` is the import source and `movedFrom` the previous address:
+ * a different source means a different change to confirm.
+ */
 export function resourceKey(
     address: string,
     actions: readonly string[],
-    importing?: string,
+    {
+        importing,
+        movedFrom,
+    }: { importing?: string | undefined; movedFrom?: string | undefined } = {},
 ): string {
-    return importing === undefined
-        ? sha256(address, actions.join(","))
-        : sha256(address, actions.join(","), `import:${importing}`);
+    const parts = [address, actions.join(",")];
+    if (importing !== undefined) parts.push(`import:${importing}`);
+    if (movedFrom !== undefined) parts.push(`moved:${movedFrom}`);
+    return sha256(...parts);
 }
 
 export function slotKey(address: string, attrPath?: string): string {

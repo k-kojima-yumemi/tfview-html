@@ -67,6 +67,7 @@ tfview plan.json
   - チェックできるのは変更のある行だけです。括弧やコメントの行は読むためのものです。
   - plan JSON にはプロバイダーのスキーマが含まれないので、ブロックかどうかは値の形で推定しています。オブジェクトのリストをブロックとして、ネストした map の中身を elements として数えます。そのため、件数の数え方が Terraform と少し違うことがあります。
   - `import` ブロックで import されるリソースには、見出しに `import` タグを付けます。本文の先頭には、`terraform plan` と同じく `# (imported from "...")` を出します。差分のない import(actions が `no-op`)も一覧から外さず、`will be imported` として表示します。
+  - `moved` ブロックなどでアドレスが変わったリソースには、見出しに `moved` タグを付け、本文の先頭に `# (moved from ...)` を出します。移動だけで差分のないもの(actions が `no-op`)も一覧から外さず、`has moved` として表示します。アドレスが変わると行のキーも変わるので、移動前に確認済みにした行は引き継がれません。
   - `(known after apply)`、`forces replacement`、`(sensitive)` は目立つ形で表示します。長い値や複数行の値は省略され、クリックで全体を表示します。行にマウスを乗せると、属性のフルパスが出ます。
 
 ## sensitive な値
