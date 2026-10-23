@@ -366,8 +366,8 @@ function Items(props: {
                                     {`# ${it.label}: `}
                                     <select
                                         class="reorder-select"
-                                        aria-label={`${it.label} の照合方法`}
-                                        title="要素を位置ではなくフィールドの値で突き合わせて表示する"
+                                        aria-label={`${it.label} の比較方法`}
+                                        title="要素を位置ではなく、フィールドの値が同じものどうしで比較する"
                                         value={field}
                                         onChange={(e) =>
                                             ctx.onView(
@@ -381,7 +381,7 @@ function Items(props: {
                                         <option value="">位置で比較</option>
                                         {it.options.map((o) => (
                                             <option value={o.field}>
-                                                {o.field} で突き合わせ
+                                                {o.field} が同じ要素どうしで比較
                                             </option>
                                         ))}
                                     </select>

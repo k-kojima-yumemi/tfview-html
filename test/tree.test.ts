@@ -409,6 +409,32 @@ describe("reorderable lists", () => {
         assert.ok(paths.includes('environment[0].var[name="B"].value'));
     });
 
+    it("shows the matching field in each block, not counted as hidden", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["B", "9"],
+                ["A", "1"],
+            ],
+        );
+        const item = reorder(e);
+        const byName = item.options.find((o) => o.field === "name");
+        assert.ok(byName);
+        assert.deepEqual(layout(byName.view.items), [
+            "~ var {",
+            "  ctx name",
+            "  line value",
+            '  hidden {"attributes":1}',
+        ]);
+        // By position there is nothing to orient by, so `name` is an ordinary change.
+        assert.ok(
+            layout(item.base.items).every((row) => !row.includes("ctx name")),
+        );
+    });
+
     it("pairs added and removed elements by field value", () => {
         const e = change(
             [

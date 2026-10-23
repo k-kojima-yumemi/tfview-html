@@ -340,7 +340,11 @@ export function expandResource(
 
         if (!inList && label !== undefined && isBlockList(b, a)) {
             // A list of objects reads like repeated nested blocks: `ingress { ... }`.
-            const blocks = (entries: BlockEntry[]): Walked => {
+            // `matchedBy`: the field the elements were paired up by, shown in each block even when unchanged.
+            const blocks = (
+                entries: BlockEntry[],
+                matchedBy?: string,
+            ): Walked => {
                 const items: DisplayItem[] = [];
                 let hiddenBlocks = 0;
                 for (const e of entries) {
@@ -353,6 +357,7 @@ export function expandResource(
                         e.u,
                         e.bs,
                         e.as,
+                        matchedBy === undefined ? [] : [matchedBy],
                     );
                     if (g) items.push(g);
                     else if (!isAbsent(e.b) || !isAbsent(e.a)) hiddenBlocks++;
@@ -393,7 +398,7 @@ export function expandResource(
                         options: fields.map((field) => ({
                             field,
                             view: view(
-                                blocks(matchByField(segs, field, lists)),
+                                blocks(matchByField(segs, field, lists), field),
                             ),
                         })),
                     },
@@ -416,6 +421,10 @@ export function expandResource(
         u: unknown,
         bs: unknown,
         as: unknown,
+        // Unchanged scalar attributes shown for orientation instead of being counted as hidden.
+        contextKeys: readonly string[] = segs.length === 0
+            ? contextAttributes
+            : [],
     ): Extract<DisplayItem, { t: "group" }> | null => {
         const items: DisplayItem[] = [];
         const context: DisplayItem[] = [];
@@ -443,9 +452,8 @@ export function expandResource(
             }
             if (isAbsent(cb) && isAbsent(ca)) continue;
             const shownAsContext =
-                segs.length === 0 &&
                 typeof k === "string" &&
-                contextAttributes.includes(k) &&
+                contextKeys.includes(k) &&
                 kindOf(ca) === "scalar" &&
                 child(bs, k) !== true &&
                 child(as, k) !== true &&
