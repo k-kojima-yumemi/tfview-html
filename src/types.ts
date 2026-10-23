@@ -52,7 +52,28 @@ export type DisplayItem =
           label?: string;
           items: DisplayItem[];
           hidden?: Hidden;
+      }
+    /**
+     * A list of objects shown as repeated blocks, which the viewer can also
+     * show matched up by the value of a field instead of by position. `base`
+     * is the default (by position); each option is the same list matched by
+     * `field`. Lines of every view are in the resource's `lines`; only those
+     * of the view on display are confirmable.
+     */
+    | {
+          t: "reorder";
+          /** Path of the list within the resource; identifies the switch. */
+          path: string;
+          label: string;
+          base: ReorderView;
+          options: { field: string; view: ReorderView }[];
       };
+
+/** The blocks of a list as laid out for one way of matching its elements. */
+export interface ReorderView {
+    items: DisplayItem[];
+    hidden?: Hidden;
+}
 
 export interface ViewResource {
     id: string;
@@ -62,6 +83,7 @@ export interface ViewResource {
     /** Used as the confirmation unit when the resource has no lines. */
     resourceKey: string;
     slot: string;
+    /** Every line of every view; `display` says which are on display (see `reorder`). */
     lines: ViewLine[];
     display: DisplayItem[];
     /** Import ID (or identity JSON) when the resource is imported by an `import` block. */

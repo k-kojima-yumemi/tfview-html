@@ -1,3 +1,4 @@
+// biome-ignore-all lint/style/useNamingConvention: plans in these tests use Terraform's JSON field names
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
@@ -13,6 +14,7 @@ import {
     toggleCollapsed,
     toggleNode,
     toSaved,
+    viewKey,
 } from "../src/client/state.ts";
 import { buildViewData } from "../src/generate.ts";
 import type { PlanJson } from "../src/tree.ts";
@@ -184,5 +186,77 @@ describe("import and parse", () => {
         const { model } = setup();
         const key = at(node(model, webId).units, 0);
         assert.equal(node(model, lineNodeId(key)).level, 2);
+    });
+});
+
+describe("views of reorderable lists", () => {
+    const vars = (names: string[]) =>
+        names.map((name) => ({ name, value: name.toLowerCase() }));
+    function plan(): PlanJson {
+        return {
+            resource_changes: [
+                {
+                    address: "aws_codebuild_project.p",
+                    change: {
+                        actions: ["update"],
+                        before: {
+                            id: "p",
+                            env: [{ var: vars(["A", "B", "C"]) }],
+                        },
+                        after: {
+                            id: "p",
+                            env: [{ var: vars(["C", "A", "B"]) }],
+                        },
+                    },
+                },
+            ],
+        };
+    }
+    const data = () =>
+        buildViewData(plan(), { cwd: "/work", source: "tfplan" });
+    const id = "r:aws_codebuild_project.p";
+
+    it("units are the lines of the view on display", () => {
+        const d = data();
+        const base = buildModel(d);
+        const res = at(at(d.modules, 0).resources, 0);
+        const item = res.display
+            .flatMap((it) => (it.t === "group" ? it.items : []))
+            .find((it) => it.t === "reorder");
+        assert.ok(item && item.t === "reorder");
+        const byName = buildModel(
+            d,
+            new Map([[viewKey(id, item.path), "name"]]),
+        );
+
+        // Matched by name nothing changed (only the order did); by position everything did.
+        assert.ok(node(base, id).units.length > 0);
+        assert.deepEqual(node(byName, id).units, [res.resourceKey]);
+        // Both views' lines stay known, so confirmations of either survive a reload.
+        assert.equal(byName.unitSlot.size, base.unitSlot.size);
+    });
+
+    it("keeps a confirmation made in a view that is not on display", () => {
+        const d = data();
+        const res = at(at(d.modules, 0).resources, 0);
+        const item = res.display
+            .flatMap((it) => (it.t === "group" ? it.items : []))
+            .find((it) => it.t === "reorder");
+        assert.ok(item && item.t === "reorder");
+        const byName = buildModel(
+            d,
+            new Map([[viewKey(id, item.path), "name"]]),
+        );
+        const confirmed = toggleNode(
+            byName,
+            restore(byName, emptySaved).state,
+            node(byName, id),
+        );
+
+        const base = buildModel(d);
+        const { state, carried } = restore(base, toSaved(confirmed));
+        // Reloaded on the base view: the unit of the other view is not shown, but not dropped either.
+        assert.ok(state.confirmed.has(res.resourceKey));
+        assert.ok(!carried.has(res.resourceKey));
     });
 });

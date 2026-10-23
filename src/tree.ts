@@ -10,6 +10,7 @@ import type {
     DisplayItem,
     Hidden,
     LineOp,
+    ReorderView,
     ViewLine,
     ViewModule,
     ViewResource,
@@ -41,7 +42,21 @@ export interface ResourceChange {
 }
 // biome-ignore-end lint/style/useNamingConvention: field names of Terraform's JSON plan format
 
-type Segment = string | number;
+/** A map key or a list index. */
+type Key = string | number;
+
+/**
+ * A list element addressed by the value of one of its fields (`[name="FOO"]`),
+ * for lists that are compared by that field instead of by position.
+ * `indexes` are the positions it had before and after, for `replace_paths`.
+ */
+interface KeySegment {
+    field: string;
+    value: string;
+    indexes: number[];
+}
+
+type Segment = Key | KeySegment;
 
 export const rootModule = "(root)";
 
@@ -325,24 +340,66 @@ export function expandResource(
 
         if (!inList && label !== undefined && isBlockList(b, a)) {
             // A list of objects reads like repeated nested blocks: `ingress { ... }`.
-            const items: DisplayItem[] = [];
-            let hiddenBlocks = 0;
-            for (const k of keys) {
-                const g = group(
-                    [...segs, k],
-                    label,
-                    "block",
-                    child(b, k),
-                    child(a, k),
-                    child(u, k),
-                    child(bs, k),
-                    child(as, k),
-                );
-                if (g) items.push(g);
-                else if (!isAbsent(child(b, k)) || !isAbsent(child(a, k)))
-                    hiddenBlocks++;
-            }
-            return { items, hiddenBlocks };
+            const blocks = (entries: BlockEntry[]): Walked => {
+                const items: DisplayItem[] = [];
+                let hiddenBlocks = 0;
+                for (const e of entries) {
+                    const g = group(
+                        e.segs,
+                        label,
+                        "block",
+                        e.b,
+                        e.a,
+                        e.u,
+                        e.bs,
+                        e.as,
+                    );
+                    if (g) items.push(g);
+                    else if (!isAbsent(e.b) || !isAbsent(e.a)) hiddenBlocks++;
+                }
+                return { items, hiddenBlocks };
+            };
+            const byIndex = blocks(
+                keys.map((k) => ({
+                    segs: [...segs, k],
+                    b: child(b, k),
+                    a: child(a, k),
+                    u: child(u, k),
+                    bs: child(bs, k),
+                    as: child(as, k),
+                })),
+            );
+            const lists: BlockLists = { b, a, u, bs, as };
+            const fields =
+                byIndex.items.length > 0 ? reorderFields(lists, isMasked) : [];
+            if (fields.length === 0) return byIndex;
+
+            // The same list compared by the value of one field, for the viewer to switch to.
+            const view = ({ items, hiddenBlocks }: Walked): ReorderView => {
+                const hidden = compactHidden({
+                    attributes: 0,
+                    blocks: hiddenBlocks,
+                    elements: 0,
+                });
+                return hidden ? { items, hidden } : { items };
+            };
+            return {
+                items: [
+                    {
+                        t: "reorder",
+                        path: formatPath(segs),
+                        label,
+                        base: view(byIndex),
+                        options: fields.map((field) => ({
+                            field,
+                            view: view(
+                                blocks(matchByField(segs, field, lists)),
+                            ),
+                        })),
+                    },
+                ],
+                hiddenBlocks: 0,
+            };
         }
 
         const style = bk === "array" || ak === "array" ? "list" : "map";
@@ -444,6 +501,119 @@ function compactHidden(h: Required<Hidden>): Hidden | undefined {
     return Object.keys(out).length > 0 ? out : undefined;
 }
 
+/** One element of a block list: its path and its slice of each of the five parallel trees. */
+interface BlockEntry {
+    segs: Segment[];
+    b: unknown;
+    a: unknown;
+    u: unknown;
+    bs: unknown;
+    as: unknown;
+}
+
+/** The lists as found in before / after / after_unknown / before_sensitive / after_sensitive. */
+interface BlockLists {
+    b: unknown;
+    a: unknown;
+    u: unknown;
+    bs: unknown;
+    as: unknown;
+}
+
+/**
+ * Fields by which the elements of a block list can be matched up: strings that
+ * are known, not masked and unique within each side. Only fields for which some
+ * element moved are returned: matching by the field would read the same as
+ * matching by position for a list that only grew at the end, or whose elements
+ * only changed in place.
+ */
+function reorderFields(
+    { b, a, u, bs, as }: BlockLists,
+    isMasked: (v: unknown) => boolean,
+): string[] {
+    const before = Array.isArray(b) ? b : [];
+    const after = Array.isArray(a) ? a : [];
+    const first = before[0] ?? after[0];
+    if (before.length === 0 || after.length === 0 || kindOf(first) !== "object")
+        return [];
+
+    const valueAt = (
+        list: unknown[],
+        i: number,
+        field: string,
+        unknownMark: unknown,
+        sensitiveMark: unknown,
+    ): string | undefined => {
+        const v = child(list[i], field);
+        if (typeof v !== "string" || v === "" || isMasked(v)) return undefined;
+        if (
+            child(child(unknownMark, i), field) === true ||
+            child(unknownMark, i) === true ||
+            child(child(sensitiveMark, i), field) === true ||
+            child(sensitiveMark, i) === true
+        )
+            return undefined;
+        return v;
+    };
+    const valuesOf = (
+        list: unknown[],
+        field: string,
+        unknownMark: unknown,
+        sensitiveMark: unknown,
+    ): string[] | undefined => {
+        const out: string[] = [];
+        for (let i = 0; i < list.length; i++) {
+            const v = valueAt(list, i, field, unknownMark, sensitiveMark);
+            if (v === undefined) return undefined;
+            out.push(v);
+        }
+        return new Set(out).size === out.length ? out : undefined;
+    };
+
+    return Object.keys(first as object).filter((field) => {
+        const bv = valuesOf(before, field, undefined, bs);
+        const av = valuesOf(after, field, u, as);
+        if (!bv || !av) return false;
+        const afterIndex = new Map(av.map((v, i) => [v, i] as const));
+        return bv.some((v, i) => {
+            const j = afterIndex.get(v);
+            return j !== undefined && j !== i;
+        });
+    });
+}
+
+/** The elements of a block list paired up by the value of `field`, sorted by that value. */
+function matchByField(
+    segs: Segment[],
+    field: string,
+    { b, a, u, bs, as }: BlockLists,
+): BlockEntry[] {
+    const before = Array.isArray(b) ? b : [];
+    const after = Array.isArray(a) ? a : [];
+    const indexOf = (list: unknown[]) =>
+        new Map(list.map((e, i) => [String(child(e, field)), i] as const));
+    const bi = indexOf(before);
+    const ai = indexOf(after);
+    const values = [...new Set([...bi.keys(), ...ai.keys()])].sort();
+    return values.map((value) => {
+        const ib = bi.get(value);
+        const ia = ai.get(value);
+        const seg: KeySegment = {
+            field,
+            value,
+            indexes: [ib, ia].filter((i): i is number => i !== undefined),
+        };
+        return {
+            segs: [...segs, seg],
+            b: ib === undefined ? undefined : before[ib],
+            a: ia === undefined ? undefined : after[ia],
+            u: ia === undefined ? undefined : child(u, ia),
+            bs: ib === undefined ? undefined : child(bs, ib),
+            as: ia === undefined ? undefined : child(as, ia),
+        };
+    });
+}
+
 /** A non-empty list whose elements are all objects (Terraform's nested blocks look like this). */
 function isBlockList(...values: unknown[]): boolean {
     const elements = values.filter(Array.isArray).flat();
@@ -454,7 +624,7 @@ function arrayLength(v: unknown): number {
     return Array.isArray(v) ? v.length : 0;
 }
 
-function formatKey(k: Segment): string {
+function formatKey(k: Key): string {
     return typeof k === "string" && identifierPattern.test(k)
         ? k
         : JSON.stringify(String(k));
@@ -473,7 +643,7 @@ function kindOf(v: unknown): Kind {
     return "scalar";
 }
 
-function child(v: unknown, k: Segment): unknown {
+function child(v: unknown, k: Key): unknown {
     if (Array.isArray(v)) return typeof k === "number" ? v[k] : undefined;
     if (v !== null && typeof v === "object")
         return typeof k === "string"
@@ -482,7 +652,7 @@ function child(v: unknown, k: Segment): unknown {
     return undefined;
 }
 
-function childKeys(...values: unknown[]): Segment[] {
+function childKeys(...values: unknown[]): Key[] {
     const containers = values.filter(
         (v) => v !== null && typeof v === "object",
     );
@@ -507,6 +677,8 @@ export function formatPath(segs: readonly Segment[]): string {
     let out = "";
     for (const s of segs) {
         if (typeof s === "number") out += `[${s}]`;
+        else if (typeof s === "object")
+            out += `[${s.field}=${JSON.stringify(s.value)}]`;
         else if (identifierPattern.test(s)) out += out === "" ? s : `.${s}`;
         else out += `[${JSON.stringify(s)}]`;
     }
@@ -514,9 +686,16 @@ export function formatPath(segs: readonly Segment[]): string {
 }
 
 /** True when one path is a prefix of the other. */
-function overlaps(a: readonly Segment[], b: readonly Segment[]): boolean {
-    const n = Math.min(a.length, b.length);
-    for (let i = 0; i < n; i++) if (a[i] !== b[i]) return false;
+function overlaps(rp: readonly Key[], segs: readonly Segment[]): boolean {
+    const n = Math.min(rp.length, segs.length);
+    for (let i = 0; i < n; i++) {
+        const r = rp[i];
+        const s = segs[i];
+        if (s !== undefined && typeof s === "object") {
+            // `replace_paths` address list elements by position.
+            if (typeof r !== "number" || !s.indexes.includes(r)) return false;
+        } else if (r !== s) return false;
+    }
     return true;
 }
 

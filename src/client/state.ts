@@ -1,5 +1,44 @@
 // Review state of the viewer, as pure functions (no DOM), so it can be unit tested.
-import type { SavedState, ViewData, ViewResource } from "../types.ts";
+import type {
+    DisplayItem,
+    ReorderView,
+    SavedState,
+    ViewData,
+    ViewResource,
+} from "../types.ts";
+
+export type ReorderItem = Extract<DisplayItem, { t: "reorder" }>;
+
+/** Which field each reorderable list is currently matched by (see `viewKey`). Lists not in it are shown by position. */
+export type Views = ReadonlyMap<string, string>;
+
+export function viewKey(resourceId: string, path: string): string {
+    return `${resourceId}\0${path}`;
+}
+
+/** The layout of a reorderable list that is on display. */
+export function viewOf(
+    item: ReorderItem,
+    resourceId: string,
+    views: Views,
+): ReorderView {
+    const field = views.get(viewKey(resourceId, item.path));
+    return item.options.find((o) => o.field === field)?.view ?? item.base;
+}
+
+/** Indexes into `res.lines` of the lines on display, in display order. */
+export function activeLines(res: ViewResource, views: Views): number[] {
+    const out: number[] = [];
+    const walk = (items: DisplayItem[]) => {
+        for (const it of items) {
+            if (it.t === "line") out.push(it.i);
+            else if (it.t === "group") walk(it.items);
+            else if (it.t === "reorder") walk(viewOf(it, res.id, views).items);
+        }
+    };
+    walk(res.display);
+    return out;
+}
 
 /** 0: module, 1: resource, 2: line. */
 export type Level = 0 | 1 | 2;
@@ -17,8 +56,10 @@ export interface TreeNode {
 export interface Model {
     modules: TreeNode[];
     nodes: Map<string, TreeNode>;
-    /** unit key -> slot key */
+    /** unit key -> slot key, for the lines of every view (also those not on display) */
     unitSlot: Map<string, string>;
+    /** Units on display. */
+    active: Set<string>;
     resources: Map<string, ViewResource>;
 }
 
@@ -33,9 +74,10 @@ export function lineNodeId(key: string): string {
     return `l:${key}`;
 }
 
-export function buildModel(data: ViewData): Model {
+export function buildModel(data: ViewData, views: Views = new Map()): Model {
     const nodes = new Map<string, TreeNode>();
     const unitSlot = new Map<string, string>();
+    const active = new Set<string>();
     const resources = new Map<string, ViewResource>();
     const add = (n: TreeNode) => {
         nodes.set(n.id, n);
@@ -52,10 +94,11 @@ export function buildModel(data: ViewData): Model {
         });
         for (const res of mod.resources) {
             resources.set(res.id, res);
+            // Lines of every view are known (confirmations of a view not on display are kept), but only those on display are units.
+            const shown = activeLines(res, views).map((i) => lineAt(res, i));
             const units =
-                res.lines.length > 0
-                    ? res.lines.map((l) => l.key)
-                    : [res.resourceKey];
+                shown.length > 0 ? shown.map((l) => l.key) : [res.resourceKey];
+            for (const k of units) active.add(k);
             const r = add({
                 id: res.id,
                 level: 1,
@@ -63,9 +106,10 @@ export function buildModel(data: ViewData): Model {
                 parent: m,
                 children: [],
             });
-            if (res.lines.length === 0) unitSlot.set(res.resourceKey, res.slot);
-            for (const line of res.lines) {
-                unitSlot.set(line.key, line.slot);
+            // A view without lines makes the resource its own unit, so its key is always known.
+            unitSlot.set(res.resourceKey, res.slot);
+            for (const line of res.lines) unitSlot.set(line.key, line.slot);
+            for (const line of shown) {
                 r.children.push(
                     add({
                         id: lineNodeId(line.key),
@@ -81,7 +125,14 @@ export function buildModel(data: ViewData): Model {
         }
         return m;
     });
-    return { modules, nodes, unitSlot, resources };
+    return { modules, nodes, unitSlot, active, resources };
+}
+
+/** A line by index. Display items index into the same resource, so a miss is a bug. */
+function lineAt(res: ViewResource, i: number) {
+    const line = res.lines[i];
+    if (line === undefined) throw new Error(`${res.address}: no line ${i}`);
+    return line;
 }
 
 /** A node of this model by id. Ids come from the same data, so a miss is a bug. */
@@ -150,7 +201,12 @@ export function restore(model: Model, saved: SavedState): Restored {
     );
     const updated = new Set(
         [...model.unitSlot]
-            .filter(([k, s]) => savedSlots.has(s) && !confirmed.has(k))
+            .filter(
+                ([k, s]) =>
+                    model.active.has(k) &&
+                    savedSlots.has(s) &&
+                    !confirmed.has(k),
+            )
             .map(([k]) => k),
     );
     const slots = new Set([...savedSlots].filter((s) => currentSlots.has(s)));
@@ -163,7 +219,7 @@ export function restore(model: Model, saved: SavedState): Restored {
     };
     return {
         state: collapseDone(model, state),
-        carried: new Set(confirmed),
+        carried: new Set([...confirmed].filter((k) => model.active.has(k))),
         updated,
     };
 }

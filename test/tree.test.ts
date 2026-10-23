@@ -9,7 +9,7 @@ import {
     formatPath,
     rootModule,
 } from "../src/tree.ts";
-import type { DisplayItem } from "../src/types.ts";
+import type { DisplayItem, ReorderView } from "../src/types.ts";
 import { at, findResource, lineAtPath, loadFixture } from "./helpers.ts";
 
 const tree = buildTree(loadFixture());
@@ -233,6 +233,20 @@ function layout(items: DisplayItem[], depth = 0): string[] {
     return items.flatMap((it): string[] => {
         if (it.t === "line") return [`${pad}line ${it.label ?? "(element)"}`];
         if (it.t === "ctx") return [`${pad}ctx ${it.label}`];
+        if (it.t === "reorder") {
+            const view = (name: string, v: ReorderView) => [
+                `${pad}${name}`,
+                ...layout(v.items, depth + 1),
+                ...(v.hidden
+                    ? [`${pad}  hidden ${JSON.stringify(v.hidden)}`]
+                    : []),
+            ];
+            return [
+                `${pad}reorder ${it.label}`,
+                ...view("by position", it.base),
+                ...it.options.flatMap((o) => view(`by ${o.field}`, o.view)),
+            ];
+        }
         const head =
             it.style === "block"
                 ? `${it.label} {`
@@ -315,7 +329,11 @@ describe("display layout", () => {
                     ? [it.i]
                     : it.t === "group"
                       ? indexes(it.items)
-                      : [],
+                      : it.t === "reorder"
+                        ? [it.base, ...it.options.map((o) => o.view)].flatMap(
+                              (v) => indexes(v.items),
+                          )
+                        : [],
             );
         for (const m of tree) {
             for (const r of m.resources) {
@@ -337,6 +355,203 @@ describe("display layout", () => {
             after_sensitive: { id: true },
         });
         assert.deepEqual(layout(display), ["line v"]);
+    });
+});
+
+describe("reorderable lists", () => {
+    const vars = (names: [string, string][]) =>
+        names.map(([name, value]) => ({ name, value, type: "PLAINTEXT" }));
+    const change = (
+        before: [string, string][],
+        after: [string, string][],
+        extra: Partial<Parameters<typeof expandResource>[1]> = {},
+    ) =>
+        expandResource("aws_codebuild_project.p", {
+            actions: ["update"],
+            before: { id: "p", environment: [{ var: vars(before) }] },
+            after: { id: "p", environment: [{ var: vars(after) }] },
+            ...extra,
+        });
+    /** The `var` list's reorder item. */
+    const reorder = (e: ReturnType<typeof change>) => {
+        const env = e.display.find((it) => it.t === "group");
+        assert.ok(env && env.t === "group");
+        const item = env.items.find((it) => it.t === "reorder");
+        assert.ok(item && item.t === "reorder", "no reorder item");
+        return item;
+    };
+
+    it("offers matching by a field when the order differs, and shows only real changes", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+                ["C", "3"],
+            ],
+            [
+                ["C", "3"],
+                ["A", "1"],
+                ["B", "9"],
+            ],
+        );
+        const item = reorder(e);
+        // `value` is unique too, so it is offered as well; `type` is the same everywhere and is not.
+        assert.deepEqual(
+            item.options.map((o) => o.field),
+            ["name", "value"],
+        );
+        // By position every element differs; by name only B changed.
+        assert.equal(item.base.items.length, 3);
+        const byName = at(item.options, 0).view;
+        assert.equal(byName.items.length, 1);
+        assert.deepEqual(byName.hidden, { blocks: 2 });
+        const paths = e.lines.map((l) => l.path);
+        assert.ok(paths.includes('environment[0].var[name="B"].value'));
+    });
+
+    it("pairs added and removed elements by field value", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["N", "n"],
+                ["A", "1"],
+            ],
+        );
+        const byName = at(reorder(e).options, 0).view;
+        const ops = e.lines.filter((l) => l.path.includes("[name="));
+        assert.deepEqual(
+            ops.map((l) => `${l.op} ${l.path}`).sort(),
+            [
+                '+ environment[0].var[name="N"].name',
+                '+ environment[0].var[name="N"].type',
+                '+ environment[0].var[name="N"].value',
+                '- environment[0].var[name="B"].name',
+                '- environment[0].var[name="B"].type',
+                '- environment[0].var[name="B"].value',
+            ].sort(),
+        );
+        assert.deepEqual(byName.hidden, { blocks: 1 });
+    });
+
+    it("does not offer it for a list that only grew at the end", () => {
+        const e = change(
+            [["A", "1"]],
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+        );
+        const env = e.display.find((it) => it.t === "group");
+        assert.ok(env && env.t === "group");
+        assert.ok(!env.items.some((it) => it.t === "reorder"));
+    });
+
+    it("does not offer it for a list whose elements only changed in place", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["A", "1"],
+                ["C", "2"],
+            ],
+        );
+        const env = e.display.find((it) => it.t === "group");
+        assert.ok(env && env.t === "group");
+        assert.ok(!env.items.some((it) => it.t === "reorder"));
+    });
+
+    it("does not offer a field with duplicate, unknown or masked values", () => {
+        const dup = change(
+            [
+                ["A", "1"],
+                ["A", "2"],
+            ],
+            [
+                ["A", "2"],
+                ["A", "1"],
+            ],
+        );
+        const env = dup.display.find((it) => it.t === "group");
+        assert.ok(env && env.t === "group");
+        // `value` is unique and differs by position, so only it is offered.
+        assert.deepEqual(
+            env.items.flatMap((it) =>
+                it.t === "reorder" ? it.options.map((o) => o.field) : [],
+            ),
+            ["value"],
+        );
+
+        const masked = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["B", "2"],
+                ["A", "1"],
+            ],
+            {
+                before_sensitive: {
+                    environment: [{ var: [{ name: true }, { name: true }] }],
+                },
+                after_sensitive: {
+                    environment: [{ var: [{ name: true }, { name: true }] }],
+                },
+            },
+        );
+        assert.ok(
+            !reorder(masked).options.some((o) => o.field === "name"),
+            "a masked field must not be a key",
+        );
+
+        const unknown = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["B", "2"],
+                ["A", "1"],
+            ],
+            { after_unknown: { environment: [{ var: [{ name: true }, {}] }] } },
+        );
+        assert.ok(!reorder(unknown).options.some((o) => o.field === "name"));
+    });
+
+    it("keeps forces replacement for elements matched by field", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["B", "3"],
+                ["A", "1"],
+            ],
+            { replace_paths: [["environment", 0, "var", 0, "value"]] },
+        );
+        const line = e.lines.find((l) => l.path.endsWith('[name="B"].value'));
+        assert.ok(line?.forcesReplacement);
+    });
+
+    it("gives lines of the two views different keys", () => {
+        const e = change(
+            [
+                ["A", "1"],
+                ["B", "2"],
+            ],
+            [
+                ["B", "3"],
+                ["A", "1"],
+            ],
+        );
+        const keys = e.lines.map((l) => l.key);
+        assert.equal(new Set(keys).size, keys.length);
     });
 });
 

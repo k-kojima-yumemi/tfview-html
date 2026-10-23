@@ -4,6 +4,7 @@ import {
     render,
     useEffect,
     useLayoutEffect,
+    useMemo,
     useRef,
     useState,
 } from "hono/jsx/dom";
@@ -34,6 +35,9 @@ import {
     toggleCollapsed,
     toggleNode,
     toSaved,
+    type Views,
+    viewKey,
+    viewOf,
 } from "./state.ts";
 import { readJson, storageAvailable, writeJson } from "./storage.ts";
 
@@ -63,6 +67,8 @@ interface Ctx {
     carried: ReadonlySet<string>;
     updated: ReadonlySet<string>;
     showSensitive: boolean;
+    views: Views;
+    onView: (resourceId: string, path: string, field: string) => void;
     onToggle: (node: TreeNode) => void;
     onFold: (node: TreeNode) => void;
 }
@@ -218,13 +224,19 @@ function hiddenComments(hidden: Hidden | undefined): string[] {
     return out;
 }
 
-function lineKeysOf(items: DisplayItem[], res: ViewResource): string[] {
+function lineKeysOf(
+    ctx: Ctx,
+    items: DisplayItem[],
+    res: ViewResource,
+): string[] {
     return items.flatMap((it) =>
         it.t === "line"
             ? [lineAt(res, it.i).key]
             : it.t === "group"
-              ? lineKeysOf(it.items, res)
-              : [],
+              ? lineKeysOf(ctx, it.items, res)
+              : it.t === "reorder"
+                ? lineKeysOf(ctx, viewOf(it, res.id, ctx.views).items, res)
+                : [],
     );
 }
 
@@ -313,7 +325,7 @@ function Items(props: {
     const width = Math.max(
         0,
         ...items.map((it) =>
-            it.t === "group" && it.style === "block"
+            (it.t === "group" && it.style === "block") || it.t === "reorder"
                 ? 0
                 : (it.label?.length ?? 0),
         ),
@@ -344,7 +356,53 @@ function Items(props: {
                         </PlainRow>
                     );
                 }
-                const done = lineKeysOf(it.items, res).every((k) =>
+                if (it.t === "reorder") {
+                    const view = viewOf(it, res.id, ctx.views);
+                    const field = ctx.views.get(viewKey(res.id, it.path)) ?? "";
+                    return (
+                        <>
+                            <PlainRow cls="comment reorder">
+                                <Code depth={depth}>
+                                    {`# ${it.label}: `}
+                                    <select
+                                        class="reorder-select"
+                                        aria-label={`${it.label} の照合方法`}
+                                        title="要素を位置ではなくフィールドの値で突き合わせて表示する"
+                                        value={field}
+                                        onChange={(e) =>
+                                            ctx.onView(
+                                                res.id,
+                                                it.path,
+                                                (e.target as HTMLSelectElement)
+                                                    .value,
+                                            )
+                                        }
+                                    >
+                                        <option value="">位置で比較</option>
+                                        {it.options.map((o) => (
+                                            <option value={o.field}>
+                                                {o.field} で突き合わせ
+                                            </option>
+                                        ))}
+                                    </select>
+                                </Code>
+                            </PlainRow>
+                            <Items
+                                ctx={ctx}
+                                res={res}
+                                items={view.items}
+                                depth={depth}
+                                inList={false}
+                            />
+                            {hiddenComments(view.hidden).map((c) => (
+                                <PlainRow cls="comment">
+                                    <Code depth={depth}>{c}</Code>
+                                </PlainRow>
+                            ))}
+                        </>
+                    );
+                }
+                const done = lineKeysOf(ctx, it.items, res).every((k) =>
                     ctx.state.confirmed.has(k),
                 );
                 return (
@@ -598,14 +656,15 @@ function downloadJson(name: string, value: unknown): void {
 
 function App({
     data,
-    model,
     initial,
 }: {
     data: ViewData;
-    model: Model;
     initial: ReturnType<typeof restore>;
 }) {
     const stateKey = `tfview:${data.projectId}`;
+    // Not saved: every list starts out matched by position, and the viewer switches the ones it wants to read in another order.
+    const [views, setViews] = useState<Views>(new Map());
+    const model = useMemo(() => buildModel(data, views), [views]);
     const [state, setState] = useState<ReviewState>(initial.state);
     // Handlers read the latest state from here: several events can arrive before the next render.
     const [latest] = useState(() => ({ state: initial.state }));
@@ -656,6 +715,13 @@ function App({
         carried,
         updated: initial.updated,
         showSensitive: data.showSensitive === true,
+        views,
+        onView: (resourceId, path, field) => {
+            const next = new Map(views);
+            if (field === "") next.delete(viewKey(resourceId, path));
+            else next.set(viewKey(resourceId, path), field);
+            setViews(next);
+        },
         onToggle: (node) => {
             commit(toggleNode(model, current(), node));
             keepInView(node);
@@ -846,13 +912,13 @@ function requireElement(id: string): HTMLElement {
 const data = JSON.parse(
     requireElement("tfview-data").textContent ?? "",
 ) as ViewData;
-const model = buildModel(data);
+const initialModel = buildModel(data);
 const saved = parseSaved(readJson(`tfview:${data.projectId}`)) ?? {
     version: 1,
     confirmed: [],
     slots: [],
 };
 render(
-    <App data={data} model={model} initial={restore(model, saved)} />,
+    <App data={data} initial={restore(initialModel, saved)} />,
     requireElement("app"),
 );
