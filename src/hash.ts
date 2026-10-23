@@ -21,14 +21,8 @@ export function canonical(value: unknown): string {
     return JSON.stringify(value);
 }
 
-// 128 bits of sha256 is plenty to avoid collisions and keeps the HTML smaller.
-const keyLength = 32;
-
 export function sha256(...parts: string[]): string {
-    return createHash("sha256")
-        .update(parts.join("\0"))
-        .digest("hex")
-        .slice(0, keyLength);
+    return createHash("sha256").update(parts.join("\0")).digest("hex");
 }
 
 export function lineKey(
@@ -58,5 +52,5 @@ export function slotKey(address: string, attrPath?: string): string {
 }
 
 export function projectId(cwd: string): string {
-    return sha256("project", cwd).slice(0, 16);
+    return sha256("project", cwd);
 }

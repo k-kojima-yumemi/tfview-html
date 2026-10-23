@@ -106,6 +106,12 @@ describe("keys", () => {
         assert.notEqual(lineKey("a.b", "x", 1, 3), base);
     });
 
+    it("are full sha256 hex digests", () => {
+        const fullHex = /^[0-9a-f]{64}$/;
+        assert.match(lineKey("a.b", "x", 1, 2), fullHex);
+        assert.match(projectId("/a/b"), fullHex);
+    });
+
     it("projectId depends on the directory", () => {
         assert.equal(projectId("/a/b"), projectId("/a/b"));
         assert.notEqual(projectId("/a/b"), projectId("/a/c"));
