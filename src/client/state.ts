@@ -1,14 +1,8 @@
 // Review state of the viewer, as pure functions (no DOM), so it can be unit tested.
 import type { SavedState, ViewData, ViewResource } from "../types.ts";
 
-export type Granularity = "module" | "resource" | "line";
+/** 0: module, 1: resource, 2: line. */
 export type Level = 0 | 1 | 2;
-
-export const granularityLevel: Record<Granularity, Level> = {
-    module: 0,
-    resource: 1,
-    line: 2,
-};
 
 export interface TreeNode {
     id: string;
@@ -33,7 +27,6 @@ export interface ReviewState {
     /** Slots of confirmed units (plus changed slots still waiting for re-confirmation). */
     slots: ReadonlySet<string>;
     collapsed: ReadonlySet<string>;
-    granularity: Granularity;
 }
 
 export function lineNodeId(key: string): string {
@@ -149,11 +142,7 @@ export interface Restored {
  * Restores the saved state for this plan. Keys that are not in this plan are
  * dropped (old-key cleanup), and every fully confirmed node starts folded.
  */
-export function restore(
-    model: Model,
-    saved: SavedState,
-    granularity: Granularity,
-): Restored {
+export function restore(model: Model, saved: SavedState): Restored {
     const currentSlots = new Set(model.unitSlot.values());
     const savedSlots = new Set(saved.slots);
     const confirmed = new Set(
@@ -171,7 +160,6 @@ export function restore(
         confirmed,
         slots,
         collapsed: new Set(),
-        granularity,
     };
     return {
         state: collapseDone(model, state),
@@ -193,26 +181,34 @@ export function isDone(state: ReviewState, node: TreeNode): boolean {
     return node.units.every((k) => state.confirmed.has(k));
 }
 
-/** Nodes counted by the progress bar at the current granularity. */
-export function progressUnits(
-    model: Model,
-    granularity: Granularity,
-): TreeNode[] {
-    const resources = model.modules.flatMap((m) => m.children);
-    if (granularity === "module") return model.modules;
-    if (granularity === "resource") return resources;
-    // Lines, plus resources that have no lines (they are their own unit).
-    return resources.flatMap((r) => (r.children.length > 0 ? r.children : [r]));
+export interface Count {
+    done: number;
+    total: number;
 }
 
-export function progress(
-    model: Model,
-    state: ReviewState,
-): { done: number; total: number } {
-    const units = progressUnits(model, state.granularity);
+export interface Progress {
+    /** Lines, plus resources that have no lines (they are their own unit). */
+    lines: Count;
+    resources: Count;
+    modules: Count;
+}
+
+function count(state: ReviewState, nodes: TreeNode[]): Count {
     return {
-        done: units.filter((n) => isDone(state, n)).length,
-        total: units.length,
+        done: nodes.filter((n) => isDone(state, n)).length,
+        total: nodes.length,
+    };
+}
+
+export function progress(model: Model, state: ReviewState): Progress {
+    const resources = model.modules.flatMap((m) => m.children);
+    const lines = resources.flatMap((r) =>
+        r.children.length > 0 ? r.children : [r],
+    );
+    return {
+        lines: count(state, lines),
+        resources: count(state, resources),
+        modules: count(state, model.modules),
     };
 }
 
@@ -273,22 +269,6 @@ export function collapseDone(model: Model, state: ReviewState): ReviewState {
     for (const n of model.nodes.values())
         if (n.level < 2 && isDone(state, n)) collapsed.add(n.id);
     return { ...state, collapsed };
-}
-
-/** Folding below the chosen level is released. */
-export function setGranularity(
-    model: Model,
-    state: ReviewState,
-    granularity: Granularity,
-): ReviewState {
-    const collapsed = new Set(
-        [...state.collapsed].filter(
-            (id) =>
-                (model.nodes.get(id)?.level ?? 0) <=
-                granularityLevel[granularity],
-        ),
-    );
-    return { ...state, granularity, collapsed };
 }
 
 /** Merges imported confirmations into the current ones. Keys not in this plan are ignored. */

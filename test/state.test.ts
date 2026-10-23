@@ -10,7 +10,6 @@ import {
     progress,
     type ReviewState,
     restore,
-    setGranularity,
     toggleCollapsed,
     toggleNode,
     toSaved,
@@ -26,7 +25,7 @@ function setup(plan: PlanJson = loadFixture(), saved: SavedState = emptySaved) {
     const model = buildModel(
         buildViewData(plan, { cwd: "/work", source: "tfplan" }),
     );
-    return { model, ...restore(model, saved, "resource") };
+    return { model, ...restore(model, saved) };
 }
 
 const node = nodeOf;
@@ -85,7 +84,7 @@ describe("toggleNode", () => {
     });
 });
 
-describe("folding and granularity", () => {
+describe("folding and progress", () => {
     it("a confirmed node can be opened and stays confirmed", () => {
         const { model, state } = setup();
         const checked = toggleNode(model, state, node(model, webId));
@@ -94,27 +93,14 @@ describe("folding and granularity", () => {
         assert.ok(isDone(opened, node(model, webId)));
     });
 
-    it("switching to module granularity releases folding of resources", () => {
-        const { model, state } = setup();
-        const checked = toggleNode(model, state, node(model, appId));
-        const next = setGranularity(model, checked, "module");
-        assert.ok(next.collapsed.has(appId));
-        for (const r of node(model, appId).children)
-            assert.ok(!next.collapsed.has(r.id));
-    });
-
-    it("progress counts units of the chosen granularity", () => {
+    it("progress counts lines, resources and modules", () => {
         const { model, state } = setup();
         const checked = toggleNode(model, state, node(model, webId));
-        assert.deepEqual(progress(model, checked), { done: 1, total: 9 });
-        assert.deepEqual(progress(model, { ...checked, granularity: "line" }), {
-            done: 3,
-            total: 31,
+        assert.deepEqual(progress(model, checked), {
+            lines: { done: 3, total: 31 },
+            resources: { done: 1, total: 9 },
+            modules: { done: 0, total: 3 },
         });
-        assert.deepEqual(
-            progress(model, { ...checked, granularity: "module" }),
-            { done: 0, total: 3 },
-        );
     });
 });
 

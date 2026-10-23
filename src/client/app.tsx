@@ -20,8 +20,6 @@ import type {
 import {
     buildModel,
     confirmedCount,
-    type Granularity,
-    granularityLevel,
     importSaved,
     isDone,
     lineNodeId,
@@ -32,7 +30,6 @@ import {
     type ReviewState,
     reset,
     restore,
-    setGranularity,
     type TreeNode,
     toggleCollapsed,
     toggleNode,
@@ -41,7 +38,6 @@ import {
 import { readJson, storageAvailable, writeJson } from "./storage.ts";
 
 const clipLength = 120;
-const granularities: Granularity[] = ["module", "resource", "line"];
 
 const lineOpClass: Record<LineOp, string> = {
     "+": "l-add",
@@ -462,11 +458,6 @@ function NodeHead(props: {
                 ›
             </button>
             <Checkbox
-                class={
-                    node.level > granularityLevel[state.granularity]
-                        ? "cb-off"
-                        : undefined
-                }
                 checked={all}
                 indeterminate={done > 0 && !all}
                 label={`${props.label} を確認済みにする`}
@@ -591,16 +582,6 @@ function ModuleView({ ctx, mod }: { ctx: Ctx; mod: ViewModule }) {
 // ---------------------------------------------------------------------------
 // App
 
-const prefsKey = "tfview:prefs";
-
-function loadGranularity(): Granularity {
-    const g = (readJson(prefsKey) as { granularity?: unknown } | undefined)
-        ?.granularity;
-    return granularities.includes(g as Granularity)
-        ? (g as Granularity)
-        : "resource";
-}
-
 function downloadJson(name: string, value: unknown): void {
     const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], {
         type: "application/json",
@@ -653,22 +634,16 @@ function App({
 
     // Saved synchronously on every change (not in an effect), so closing the tab right after a click loses nothing.
     const commit = (next: ReviewState) => {
-        const prev = current();
         latest.state = next;
         setState(next);
         if (!writeJson(stateKey, toSaved(next)))
             setStorageOk(storageAvailable());
-        if (next.granularity !== prev.granularity)
-            writeJson(prefsKey, { granularity: next.granularity });
     };
     // Writes back the cleaned-up state on load (keys not in this plan are dropped).
     useEffect(() => {
         if (!writeJson(stateKey, toSaved(initial.state)))
             setStorageOk(storageAvailable());
     }, []);
-    useEffect(() => {
-        document.body.classList.toggle("g-line", state.granularity === "line");
-    }, [state.granularity]);
     useEffect(() => {
         if (flash === null) return;
         const t = setTimeout(() => setFlash(null), 4000);
@@ -725,7 +700,7 @@ function App({
         );
     };
 
-    const { done, total } = progress(model, state);
+    const { lines, resources, modules } = progress(model, state);
     const meta = [
         data.source,
         data.terraformVersion && `Terraform ${data.terraformVersion}`,
@@ -745,39 +720,18 @@ function App({
                     <span class="brand">tfview</span>
                     <span class="meta">{meta.join(" · ")}</span>
                     <span class="spacer" />
-                    <fieldset class="seg">
-                        <legend class="visually-hidden">確認の粒度</legend>
-                        {granularities.map((g) => (
-                            <label
-                                class={classNames(
-                                    "seg-option",
-                                    state.granularity === g && "selected",
-                                )}
-                            >
-                                <input
-                                    type="radio"
-                                    name="granularity"
-                                    value={g}
-                                    data-g={g}
-                                    checked={state.granularity === g}
-                                    onChange={() =>
-                                        commit(
-                                            setGranularity(model, current(), g),
-                                        )
-                                    }
-                                />
-                                {g}
-                            </label>
-                        ))}
-                    </fieldset>
                     <div class="progress">
                         <span id="progress-text">
-                            {done} / {total} {state.granularity} 確認済み
+                            {lines.done} / {lines.total} line 確認済み
+                        </span>
+                        <span class="progress-sub">
+                            resource {resources.done} / {resources.total} ·
+                            module {modules.done} / {modules.total}
                         </span>
                         <div class="progress-bar">
                             <div
                                 class="progress-fill"
-                                style={`width:${total === 0 ? 100 : (done / total) * 100}%`}
+                                style={`width:${lines.total === 0 ? 100 : (lines.done / lines.total) * 100}%`}
                             />
                         </div>
                     </div>
@@ -899,10 +853,6 @@ const saved = parseSaved(readJson(`tfview:${data.projectId}`)) ?? {
     slots: [],
 };
 render(
-    <App
-        data={data}
-        model={model}
-        initial={restore(model, saved, loadGranularity())}
-    />,
+    <App data={data} model={model} initial={restore(model, saved)} />,
     requireElement("app"),
 );
