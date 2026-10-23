@@ -23,5 +23,5 @@ jobs:
           # Uses `volta.node` from package.json, the same version as local development.
           node-version-file: package.json
       - run: npm ci --ignore-scripts
-      - run: npm run typecheck
+      - run: npm run ci
       - run: npm test

@@ -133,7 +133,8 @@ Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定
 ```sh
 npm install        # devDependencies を入れる
 npm run build      # Rolldown で dist/tfview.js を1本だけ出力
-npm run typecheck  # tsc(型チェックのみ。出力はしない)
+npm run format     # Biome でフォーマットと自動修正
+npm run ci         # Biome のチェックと tsc の型チェック(CI と同じ)
 npm test           # Vitest
 node dist/tfview.js test/fixtures/plan.json --no-open
 ```
