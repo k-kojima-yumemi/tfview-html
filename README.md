@@ -1,17 +1,34 @@
 # tfview
 
 Terraform の plan 差分を、GitHub の PR の「Viewed」のように確認済みにして畳んでいけるレビュー用ツールです。
-`npx tfview tfplan` で静的な HTML を1枚生成し、ブラウザで開きます。
+plan から静的な HTML を1枚生成し、ブラウザで開きます。
 
 - 確認済みの状態はブラウザに保存されます。再 plan しても、内容が同じ差分は確認済みのまま引き継がれ、変わった行だけが開いた状態で出てきます。
 - 確認の粒度を module / resource / line から選べます。上位を確認済みにすると、配下がまとめて畳まれます。
 - サーバーや常駐プロセスは使いません。生成したらプロセスは終了します。
 
+## インストール
+
+npm には公開していません。手元でビルドして使います。必要なのは Node.js 24 以上です。
+
+```sh
+git clone git@github.com:k-kojima-yumemi/tfview-html.git
+cd tfview-html
+npm install
+npm run build      # dist/tfview.js をビルドする
+npm link           # tfview コマンドとして登録する(任意)
+```
+
+`npm link` しない場合は、`node <clone したパス>/dist/tfview.js` で直接実行できます。
+`dist/tfview.js` は依存のない1ファイルなので、好きな場所にコピーして使っても構いません。
+
 ## 使い方
+
+`terraform init` 済みのディレクトリで実行します。
 
 ```sh
 terraform plan -out=tfplan
-npx tfview tfplan
+tfview tfplan      # npm link していない場合: node <clone したパス>/dist/tfview.js tfplan
 ```
 
 `./tfview.html` が生成され(毎回上書き)、既定のブラウザで開きます。
@@ -20,7 +37,7 @@ npx tfview tfplan
 
 ```sh
 terraform show -json tfplan > plan.json
-npx tfview plan.json
+tfview plan.json
 ```
 
 ### オプション
@@ -88,8 +105,8 @@ npx tfview plan.json
 
 手動確認の手順:
 
-1. `npx tfview tfplan` で生成し、いくつかチェックする。
-2. 同じディレクトリでもう一度 `npx tfview tfplan` を実行し、チェックが残っているか確認する。
+1. `tfview tfplan` で生成し、いくつかチェックする。
+2. 同じディレクトリでもう一度 `tfview tfplan` を実行し、チェックが残っているか確認する。
 3. 別のディレクトリで生成した HTML を開き、チェックが混ざっていないか確認する。
 
 ## 仕組み
@@ -114,7 +131,7 @@ npx tfview plan.json
 Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定しています。
 
 ```sh
-npm install        # devDependencies を入れ、prepare でビルドする
+npm install        # devDependencies を入れる
 npm run build      # Rolldown で dist/tfview.js を1本だけ出力
 npm run typecheck  # tsc(型チェックのみ。出力はしない)
 npm test           # Vitest
