@@ -53,7 +53,9 @@ type Key = string | number;
  * `indexes` are the positions it had before and after, for `replace_paths`.
  */
 interface KeySegment {
-    field: string;
+    /** Absent for a list of plain values compared by the value itself (`[="10.0.0.0/16"]`). */
+    field?: string;
+    /** The field's value, or the element's canonical JSON when there is no field. */
     value: string;
     indexes: number[];
 }
@@ -407,6 +409,7 @@ export function expandResource(
                         label,
                         base: view(byIndex),
                         options: fields.map((field) => ({
+                            id: field,
                             field,
                             view: view(
                                 blocks(matchByField(segs, field, lists), field),
@@ -420,7 +423,87 @@ export function expandResource(
 
         const style = bk === "array" || ak === "array" ? "list" : "map";
         const g = group(segs, label, style, b, a, u, bs, as);
+        if (g && style === "list" && !inList && label !== undefined) {
+            const byValue = unordered(segs, label, b, a, u, bs, as);
+            if (byValue) {
+                return {
+                    items: [
+                        {
+                            t: "reorder",
+                            path: formatPath(segs),
+                            label,
+                            base: { items: [g] },
+                            options: [{ id: valueOptionId, view: byValue }],
+                        },
+                    ],
+                    hiddenBlocks: 0,
+                };
+            }
+        }
         return { items: g ? [g] : [], hiddenBlocks: 0 };
+    };
+
+    /**
+     * A list of plain values compared as a set: values only in `before` become
+     * `-` lines, values only in `after` become `+` lines, common values are
+     * counted as hidden. Offered only when it reads differently from comparing
+     * by position, i.e. some value moved.
+     */
+    const unordered = (
+        segs: Segment[],
+        label: string,
+        b: unknown,
+        a: unknown,
+        u: unknown,
+        bs: unknown,
+        as: unknown,
+    ): ReorderView | undefined => {
+        const before = plainValues(b, undefined, bs, isMasked);
+        const after = plainValues(a, u, as, isMasked);
+        if (!before || !after) return undefined;
+        const afterIndex = new Map(after.map((v, i) => [v.key, i] as const));
+        if (!before.some((v, i) => (afterIndex.get(v.key) ?? i) !== i))
+            return undefined;
+
+        const beforeIndex = new Map(before.map((v, i) => [v.key, i] as const));
+        const keys = [
+            ...new Set([...before, ...after].map((v) => v.key)),
+        ].sort();
+        const items: DisplayItem[] = [];
+        let common = 0;
+        for (const key of keys) {
+            const ib = beforeIndex.get(key);
+            const ia = afterIndex.get(key);
+            if (ib !== undefined && ia !== undefined) {
+                common++;
+                continue;
+            }
+            const seg: KeySegment = {
+                value: key,
+                indexes: [ib, ia].filter((i): i is number => i !== undefined),
+            };
+            const bv = ib === undefined ? undefined : before[ib]?.value;
+            const av = ia === undefined ? undefined : after[ia]?.value;
+            items.push(
+                ...leaf([...segs, seg], undefined, bv, av, false, false).items,
+            );
+        }
+        const hidden = compactHidden({
+            attributes: 0,
+            blocks: 0,
+            elements: common,
+        });
+        if (items.length === 0)
+            return hidden ? { items: [], hidden } : { items: [] };
+        const g: Extract<DisplayItem, { t: "group" }> = {
+            t: "group",
+            op: "~",
+            style: "list",
+            label,
+            items,
+        };
+        if (hidden) g.hidden = hidden;
+        return { items: [g] };
     };
 
     const group = (
@@ -633,6 +716,35 @@ function matchByField(
     });
 }
 
+/** Option id of comparing a list of plain values by value, ignoring order. Field names cannot contain `=`. */
+export const valueOptionId = "=";
+
+/**
+ * The elements of a non-empty list of strings or numbers, each with its
+ * canonical JSON as key, or undefined if the list cannot be compared by value:
+ * other kinds of elements, unknown or sensitive ones, masked values, or
+ * duplicates (a set comparison would hide them).
+ */
+function plainValues(
+    list: unknown,
+    unknownMark: unknown,
+    sensitiveMark: unknown,
+    isMasked: (v: unknown) => boolean,
+): { key: string; value: string | number }[] | undefined {
+    if (!Array.isArray(list) || list.length === 0) return undefined;
+    if (unknownMark === true || sensitiveMark === true) return undefined;
+    const out: { key: string; value: string | number }[] = [];
+    for (let i = 0; i < list.length; i++) {
+        const v: unknown = list[i];
+        if (typeof v !== "string" && typeof v !== "number") return undefined;
+        if (child(unknownMark, i) === true || child(sensitiveMark, i) === true)
+            return undefined;
+        if (isMasked(v)) return undefined;
+        out.push({ key: canonical(v), value: v });
+    }
+    return new Set(out.map((v) => v.key)).size === out.length ? out : undefined;
+}
+
 /** A non-empty list whose elements are all objects (Terraform's nested blocks look like this). */
 function isBlockList(...values: unknown[]): boolean {
     const elements = values.filter(Array.isArray).flat();
@@ -697,7 +809,10 @@ export function formatPath(segs: readonly Segment[]): string {
     for (const s of segs) {
         if (typeof s === "number") out += `[${s}]`;
         else if (typeof s === "object")
-            out += `[${s.field}=${JSON.stringify(s.value)}]`;
+            out +=
+                s.field === undefined
+                    ? `[=${s.value}]`
+                    : `[${s.field}=${JSON.stringify(s.value)}]`;
         else if (identifierPattern.test(s)) out += out === "" ? s : `.${s}`;
         else out += `[${JSON.stringify(s)}]`;
     }

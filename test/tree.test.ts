@@ -8,6 +8,7 @@ import {
     expandResource,
     formatPath,
     rootModule,
+    valueOptionId,
 } from "../src/tree.ts";
 import type { DisplayItem, ReorderView } from "../src/types.ts";
 import { at, findResource, lineAtPath, loadFixture } from "./helpers.ts";
@@ -244,7 +245,9 @@ function layout(items: DisplayItem[], depth = 0): string[] {
             return [
                 `${pad}reorder ${it.label}`,
                 ...view("by position", it.base),
-                ...it.options.flatMap((o) => view(`by ${o.field}`, o.view)),
+                ...it.options.flatMap((o) =>
+                    view(`by ${o.field ?? "value"}`, o.view),
+                ),
             ];
         }
         const head =
@@ -578,6 +581,85 @@ describe("reorderable lists", () => {
         );
         const keys = e.lines.map((l) => l.key);
         assert.equal(new Set(keys).size, keys.length);
+    });
+});
+
+describe("lists of plain values compared by value", () => {
+    const sg = (before: string[], after: string[]) =>
+        expandResource("aws_security_group.sg", {
+            actions: ["update"],
+            before: { id: "sg", egress: [{ cidr_blocks: before, port: 0 }] },
+            after: { id: "sg", egress: [{ cidr_blocks: after, port: 0 }] },
+        });
+    /** The `cidr_blocks` reorder item inside the single egress block. */
+    const cidrs = (e: ReturnType<typeof sg>) => {
+        const egress = e.display.find((it) => it.t === "group");
+        assert.ok(egress && egress.t === "group");
+        const item = egress.items.find((it) => it.t === "reorder");
+        assert.ok(item && item.t === "reorder", "no reorder item");
+        return item;
+    };
+
+    it("shows a list whose order alone changed as unchanged", () => {
+        const item = cidrs(
+            sg(
+                ["10.224.0.0/16", "10.0.0.0/16"],
+                ["10.0.0.0/16", "10.224.0.0/16"],
+            ),
+        );
+        assert.deepEqual(
+            item.options.map((o) => o.id),
+            [valueOptionId],
+        );
+        const byValue = at(item.options, 0).view;
+        assert.deepEqual(byValue, { items: [], hidden: { elements: 2 } });
+        // By position both elements differ.
+        assert.deepEqual(layout(item.base.items), [
+            "~ cidr_blocks[",
+            "  line (element)",
+            "  line (element)",
+        ]);
+    });
+
+    it("shows only the values added or removed", () => {
+        const e = sg(["a/1", "b/2", "c/3"], ["c/3", "a/1", "d/4"]);
+        const byValue = at(cidrs(e).options, 0).view;
+        assert.deepEqual(layout(byValue.items), [
+            "~ cidr_blocks[",
+            "  line (element)",
+            "  line (element)",
+            '  hidden {"elements":2}',
+        ]);
+        const changed = e.lines
+            .filter((l) => l.path.includes("[="))
+            .map((l) => `${l.op} ${l.path}`);
+        assert.deepEqual(changed, [
+            '- egress[0].cidr_blocks[="b/2"]',
+            '+ egress[0].cidr_blocks[="d/4"]',
+        ]);
+    });
+
+    it("is not offered for a list that only grew at the end", () => {
+        const e = sg(["a/1"], ["a/1", "b/2"]);
+        const egress = e.display.find((it) => it.t === "group");
+        assert.ok(egress && egress.t === "group");
+        assert.ok(!egress.items.some((it) => it.t === "reorder"));
+    });
+
+    it("is not offered when values repeat or are masked", () => {
+        const repeated = sg(["a/1", "a/1", "b/2"], ["b/2", "a/1", "a/1"]);
+        const egress = repeated.display.find((it) => it.t === "group");
+        assert.ok(egress && egress.t === "group");
+        assert.ok(!egress.items.some((it) => it.t === "reorder"));
+
+        const masked = expandResource("x.y", {
+            actions: ["update"],
+            before: { list: ["secret-1", "b"], token: "secret-1" },
+            after: { list: ["b", "secret-1"], token: "secret-1" },
+            before_sensitive: { token: true },
+            after_sensitive: { token: true },
+        });
+        assert.ok(!masked.display.some((it) => it.t === "reorder"));
     });
 });
 

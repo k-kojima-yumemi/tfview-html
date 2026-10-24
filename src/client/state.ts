@@ -9,7 +9,7 @@ import type {
 
 export type ReorderItem = Extract<DisplayItem, { t: "reorder" }>;
 
-/** Which field each reorderable list is currently matched by (see `viewKey`). Lists not in it are shown by position. */
+/** Which option (`ReorderOption.id`) each reorderable list is shown with (see `viewKey`). Lists not in it are shown by position. */
 export type Views = ReadonlyMap<string, string>;
 
 export function viewKey(resourceId: string, path: string): string {
@@ -22,8 +22,8 @@ export function viewOf(
     resourceId: string,
     views: Views,
 ): ReorderView {
-    const field = views.get(viewKey(resourceId, item.path));
-    return item.options.find((o) => o.field === field)?.view ?? item.base;
+    const id = views.get(viewKey(resourceId, item.path));
+    return item.options.find((o) => o.id === id)?.view ?? item.base;
 }
 
 /** Indexes into `res.lines` of the lines on display, in display order. */

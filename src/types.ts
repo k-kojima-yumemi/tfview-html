@@ -66,8 +66,17 @@ export type DisplayItem =
           path: string;
           label: string;
           base: ReorderView;
-          options: { field: string; view: ReorderView }[];
+          options: ReorderOption[];
       };
+
+/** One way of matching up the elements of a list, other than by position. */
+export interface ReorderOption {
+    /** Identifies the option in the viewer's choice: the field name, or `=` for by value. */
+    id: string;
+    /** The field the elements are matched by; absent when plain values are compared by value, ignoring order. */
+    field?: string;
+    view: ReorderView;
+}
 
 /** The blocks of a list as laid out for one way of matching its elements. */
 export interface ReorderView {

@@ -12,6 +12,7 @@ import type {
     DisplayItem,
     Hidden,
     LineOp,
+    ReorderOption,
     SavedState,
     ViewData,
     ViewLine,
@@ -28,6 +29,7 @@ import {
     nodeOf,
     parseSaved,
     progress,
+    type ReorderItem,
     type ReviewState,
     reset,
     restore,
@@ -68,7 +70,8 @@ interface Ctx {
     updated: ReadonlySet<string>;
     showSensitive: boolean;
     views: Views;
-    onView: (resourceId: string, path: string, field: string) => void;
+    /** `optionId` is a `ReorderOption.id`, or "" for by position. */
+    onView: (resourceId: string, path: string, optionId: string) => void;
     onToggle: (node: TreeNode) => void;
     onFold: (node: TreeNode) => void;
 }
@@ -321,22 +324,38 @@ function LineRow(props: {
     );
 }
 
+/** A list of plain values that can be compared by value: it renders as `label = [ ... ]`, so its label lines up with its siblings'. */
+function isValueList(it: ReorderItem): boolean {
+    return it.options.some((o) => o.field === undefined);
+}
+
+function reorderOptionText(o: ReorderOption): string {
+    return o.field === undefined
+        ? "順序を無視して比較"
+        : `${o.field} が同じ要素どうしで比較`;
+}
+
 function Items(props: {
     ctx: Ctx;
     res: ViewResource;
     items: DisplayItem[];
     depth: number;
     inList: boolean;
+    /** Width to pad labels to; the default is the widest label among `items`. */
+    width?: number;
 }) {
     const { ctx, res, items, depth, inList } = props;
-    const width = Math.max(
-        0,
-        ...items.map((it) =>
-            (it.t === "group" && it.style === "block") || it.t === "reorder"
-                ? 0
-                : (it.label?.length ?? 0),
-        ),
-    );
+    const width =
+        props.width ??
+        Math.max(
+            0,
+            ...items.map((it) =>
+                (it.t === "group" && it.style === "block") ||
+                (it.t === "reorder" && !isValueList(it))
+                    ? 0
+                    : (it.label?.length ?? 0),
+            ),
+        );
     return (
         <>
             {items.map((it) => {
@@ -365,7 +384,8 @@ function Items(props: {
                 }
                 if (it.t === "reorder") {
                     const view = viewOf(it, res.id, ctx.views);
-                    const field = ctx.views.get(viewKey(res.id, it.path)) ?? "";
+                    const chosen =
+                        ctx.views.get(viewKey(res.id, it.path)) ?? "";
                     return (
                         <>
                             <PlainRow cls="comment reorder">
@@ -374,8 +394,12 @@ function Items(props: {
                                     <select
                                         class="reorder-select"
                                         aria-label={`${it.label} の比較方法`}
-                                        title="要素を位置ではなく、フィールドの値が同じものどうしで比較する"
-                                        value={field}
+                                        title={
+                                            isValueList(it)
+                                                ? "要素を位置ではなく、値そのもので比較する(並び順の違いは無視)"
+                                                : "要素を位置ではなく、フィールドの値が同じものどうしで比較する"
+                                        }
+                                        value={chosen}
                                         onChange={(e) =>
                                             ctx.onView(
                                                 res.id,
@@ -387,8 +411,8 @@ function Items(props: {
                                     >
                                         <option value="">位置で比較</option>
                                         {it.options.map((o) => (
-                                            <option value={o.field}>
-                                                {o.field} が同じ要素どうしで比較
+                                            <option value={o.id}>
+                                                {reorderOptionText(o)}
                                             </option>
                                         ))}
                                     </select>
@@ -400,6 +424,7 @@ function Items(props: {
                                 items={view.items}
                                 depth={depth}
                                 inList={false}
+                                width={isValueList(it) ? width : undefined}
                             />
                             {hiddenComments(view.hidden).map((c) => (
                                 <PlainRow cls="comment">
@@ -739,10 +764,10 @@ function App({
         updated: initial.updated,
         showSensitive: data.showSensitive === true,
         views,
-        onView: (resourceId, path, field) => {
+        onView: (resourceId, path, optionId) => {
             const next = new Map(views);
-            if (field === "") next.delete(viewKey(resourceId, path));
-            else next.set(viewKey(resourceId, path), field);
+            if (optionId === "") next.delete(viewKey(resourceId, path));
+            else next.set(viewKey(resourceId, path), optionId);
             setViews(next);
         },
         onToggle: (node) => {
