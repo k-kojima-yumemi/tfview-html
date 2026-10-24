@@ -86,7 +86,8 @@ describe("renderHtml", () => {
             cwd: "/work/infra",
             source: "tfplan",
         });
-        assert.ok(!(await renderHtml(data)).includes("hunter2"));
+        // Only marked values are hidden; the new password appears nowhere else in the fixture.
+        assert.ok(!(await renderHtml(data)).includes("hunter2-NEW-secret"));
     });
 
     it("does not depend on external resources", async () => {

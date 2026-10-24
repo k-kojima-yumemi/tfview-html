@@ -72,8 +72,6 @@ export interface TreeOptions {
 }
 
 interface LineOptions {
-    /** Values that must not be shown unless `showSensitive` is set. */
-    secrets: ReadonlySet<string>;
     showSensitive: boolean;
 }
 
@@ -84,7 +82,6 @@ export function buildTree(
     const modules = new Map<string, ViewModule>();
     const changes = plan.resource_changes ?? [];
     const lineOpts: LineOptions = {
-        secrets: collectSensitiveStrings(changes),
         showSensitive: opts.showSensitive ?? false,
     };
 
@@ -118,51 +115,6 @@ export function buildTree(
             a === "" ? -1 : b === "" ? 1 : a < b ? -1 : a > b ? 1 : 0,
         )
         .map(([, mod]) => mod);
-}
-
-// Strings shorter than this are too likely to match unrelated values.
-const minSecretLength = 4;
-
-/**
- * Every string value that the plan marks as sensitive, anywhere.
- *
- * Terraform does not always carry the mark along with the value: e.g. the
- * `output` of `terraform_data` repeats a sensitive `input` without marking it.
- * Lines whose displayed value contains one of these strings are masked too.
- */
-export function collectSensitiveStrings(
-    changes: readonly ResourceChange[],
-): Set<string> {
-    const secrets = new Set<string>();
-    const collectAll = (v: unknown) => {
-        if (typeof v === "string") {
-            if (v.length >= minSecretLength) secrets.add(v);
-        } else if (v !== null && typeof v === "object") {
-            for (const c of Object.values(v)) collectAll(c);
-        }
-    };
-    const walk = (v: unknown, mark: unknown) => {
-        if (mark === true) return collectAll(v);
-        if (mark === null || typeof mark !== "object") return;
-        for (const k of childKeys(mark)) walk(child(v, k), child(mark, k));
-    };
-    for (const rc of changes) {
-        walk(rc.change.before, rc.change.before_sensitive);
-        walk(rc.change.after, rc.change.after_sensitive);
-    }
-    return secrets;
-}
-
-function containsSecret(value: unknown, secrets: ReadonlySet<string>): boolean {
-    if (secrets.size === 0) return false;
-    if (typeof value === "string") {
-        for (const s of secrets) if (value.includes(s)) return true;
-        return false;
-    }
-    if (value !== null && typeof value === "object") {
-        return Object.values(value).some((c) => containsSecret(c, secrets));
-    }
-    return false;
 }
 
 function buildResource(rc: ResourceChange, opts: LineOptions): ViewResource {
@@ -257,14 +209,10 @@ interface Walked {
 export function expandResource(
     address: string,
     change: ResourceChange["change"],
-    { secrets, showSensitive }: LineOptions = {
-        secrets: collectSensitiveStrings([{ address, change }]),
-        showSensitive: false,
-    },
+    { showSensitive }: LineOptions = { showSensitive: false },
 ): Expanded {
     const lines: ViewLine[] = [];
     const replacePaths = change.replace_paths ?? [];
-    const isMasked = (v: unknown) => containsSecret(v, secrets);
 
     /** Adds a line if the leaf changed; returns its index, or -1. */
     const emit = (
@@ -286,10 +234,9 @@ export function expandResource(
             path,
             op,
         };
-        const masked = sensitive || isMasked(b) || (!unknown && isMasked(a));
-        if (masked) line.sensitive = true;
-        // Unless asked for, a sensitive value is never embedded; it only contributed to the key above.
-        if (!masked || showSensitive) {
+        // Only what Terraform marks as sensitive is masked. Unless asked for, such a value is never embedded; it only contributed to the key above.
+        if (sensitive) line.sensitive = true;
+        if (!sensitive || showSensitive) {
             if (op !== "+") line.before = display(b);
             if (op !== "-" && !unknown) line.after = display(a);
         }
@@ -389,8 +336,7 @@ export function expandResource(
                 })),
             );
             const lists: BlockLists = { b, a, u, bs, as };
-            const fields =
-                byIndex.items.length > 0 ? reorderFields(lists, isMasked) : [];
+            const fields = byIndex.items.length > 0 ? reorderFields(lists) : [];
             if (fields.length === 0) return byIndex;
 
             // The same list compared by the value of one field, for the viewer to switch to.
@@ -459,8 +405,8 @@ export function expandResource(
         bs: unknown,
         as: unknown,
     ): ReorderView | undefined => {
-        const before = plainValues(b, undefined, bs, isMasked);
-        const after = plainValues(a, u, as, isMasked);
+        const before = plainValues(b, undefined, bs);
+        const after = plainValues(a, u, as);
         if (!before || !after) return undefined;
         const afterIndex = new Map(after.map((v, i) => [v.key, i] as const));
         if (!before.some((v, i) => (afterIndex.get(v.key) ?? i) !== i))
@@ -551,8 +497,7 @@ export function expandResource(
                 contextKeys.includes(k) &&
                 kindOf(ca) === "scalar" &&
                 child(bs, k) !== true &&
-                child(as, k) !== true &&
-                !isMasked(ca);
+                child(as, k) !== true;
             if (shownAsContext)
                 context.push({ t: "ctx", label: k, value: display(ca) });
             else if (isBlockList(cb, ca))
@@ -625,15 +570,12 @@ interface BlockLists {
 
 /**
  * Fields by which the elements of a block list can be matched up: strings that
- * are known, not masked and unique within each side. Only fields for which some
+ * are known, not sensitive and unique within each side. Only fields for which some
  * element moved are returned: matching by the field would read the same as
  * matching by position for a list that only grew at the end, or whose elements
  * only changed in place.
  */
-function reorderFields(
-    { b, a, u, bs, as }: BlockLists,
-    isMasked: (v: unknown) => boolean,
-): string[] {
+function reorderFields({ b, a, u, bs, as }: BlockLists): string[] {
     const before = Array.isArray(b) ? b : [];
     const after = Array.isArray(a) ? a : [];
     const first = before[0] ?? after[0];
@@ -648,7 +590,7 @@ function reorderFields(
         sensitiveMark: unknown,
     ): string | undefined => {
         const v = child(list[i], field);
-        if (typeof v !== "string" || v === "" || isMasked(v)) return undefined;
+        if (typeof v !== "string" || v === "") return undefined;
         if (
             child(child(unknownMark, i), field) === true ||
             child(unknownMark, i) === true ||
@@ -723,14 +665,13 @@ export const valueOptionId = "=";
 /**
  * The elements of a non-empty list of strings or numbers, each with its
  * canonical JSON as key, or undefined if the list cannot be compared by value:
- * other kinds of elements, unknown or sensitive ones, masked values, or
+ * other kinds of elements, unknown or sensitive ones, or
  * duplicates (a set comparison would hide them).
  */
 function plainValues(
     list: unknown,
     unknownMark: unknown,
     sensitiveMark: unknown,
-    isMasked: (v: unknown) => boolean,
 ): { key: string; value: string | number }[] | undefined {
     if (!Array.isArray(list) || list.length === 0) return undefined;
     if (unknownMark === true || sensitiveMark === true) return undefined;
@@ -740,7 +681,6 @@ function plainValues(
         if (typeof v !== "string" && typeof v !== "number") return undefined;
         if (child(unknownMark, i) === true || child(sensitiveMark, i) === true)
             return undefined;
-        if (isMasked(v)) return undefined;
         out.push({ key: canonical(v), value: v });
     }
     return new Set(out.map((v) => v.key)).size === out.length ? out : undefined;

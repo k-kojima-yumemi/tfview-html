@@ -77,7 +77,7 @@ tfview plan.json
 既定では、sensitive な値は HTML に**一切埋め込まず**、`(sensitive)` とだけ表示します。
 
 - plan JSON の `before_sensitive` / `after_sensitive` で印が付いた値を隠します。
-- Terraform が印を付け忘れる場合があります(例: `terraform_data` の `output` は、sensitive な `input` を印なしで繰り返す)。その対策として、plan のどこかで sensitive と印が付いた文字列(4文字以上)を含む値も隠します。
+- 隠すのは、Terraform が印を付けた値だけです。印の付いていない値は、`terraform plan` と同じく、そのまま表示します(例: `terraform_data` の `output` は、sensitive な `input` を印なしで繰り返すので、`output` 側の値は表示されます)。
 - ハッシュキーの計算には実際の値を使います。sensitive な値が変わると、その行は未確認に戻ります。
 
 `--show-sensitive` を付けると、実際の値を埋め込んで表示します。行には `sensitive` のタグが付き、画面上部に警告が出ます。生成した HTML には秘密情報が平文で含まれるので、共有やコミットには注意してください。キーはどちらでも同じなので、ON / OFF を切り替えても確認済み状態は引き継がれます。

@@ -209,9 +209,18 @@ describe("sensitive values", () => {
         m.resources.flatMap((r) => r.lines.flatMap((l) => [l.before, l.after])),
     );
 
-    it("never appear in the tree", () => {
+    it("are not embedded where Terraform marks them", () => {
+        const marked = tree.flatMap((m) =>
+            m.resources.flatMap((r) => r.lines.filter((l) => l.sensitive)),
+        );
+        assert.ok(marked.length > 0);
+        for (const l of marked) {
+            assert.equal(l.before, undefined, l.path);
+            assert.equal(l.after, undefined, l.path);
+        }
+        // The new password only appears where it is marked.
         for (const v of values)
-            assert.ok(!v?.includes("hunter2"), `leaked: ${v}`);
+            assert.ok(!v?.includes("hunter2-NEW-secret"), `leaked: ${v}`);
     });
 
     it("are embedded, still flagged, with showSensitive", () => {
@@ -236,14 +245,14 @@ describe("sensitive values", () => {
         );
     });
 
-    it("are masked even where Terraform dropped the sensitive mark", () => {
+    it("follow Terraform's marks only: an unmarked copy is shown, as terraform plan shows it", () => {
         // terraform_data copies `input` to `output` without carrying the mark.
         const output = lineAtPath(
             findResource(tree, "terraform_data.web"),
             "output",
         );
-        assert.equal(output.sensitive, true);
-        assert.equal(output.before, undefined);
+        assert.equal(output.sensitive, undefined);
+        assert.ok(output.before?.includes("hunter2-OLD-secret"));
     });
 });
 
@@ -665,20 +674,20 @@ describe("lists of plain values compared by value", () => {
         assert.ok(!egress.items.some((it) => it.t === "reorder"));
     });
 
-    it("is not offered when values repeat or are masked", () => {
+    it("is not offered when values repeat or are sensitive", () => {
         const repeated = sg(["a/1", "a/1", "b/2"], ["b/2", "a/1", "a/1"]);
         const egress = repeated.display.find((it) => it.t === "group");
         assert.ok(egress && egress.t === "group");
         assert.ok(!egress.items.some((it) => it.t === "reorder"));
 
-        const masked = expandResource("x.y", {
+        const sensitive = expandResource("x.y", {
             actions: ["update"],
-            before: { list: ["secret-1", "b"], token: "secret-1" },
-            after: { list: ["b", "secret-1"], token: "secret-1" },
-            before_sensitive: { token: true },
-            after_sensitive: { token: true },
+            before: { list: ["secret-1", "b"] },
+            after: { list: ["b", "secret-1"] },
+            before_sensitive: { list: [true, false] },
+            after_sensitive: { list: [false, true] },
         });
-        assert.ok(!masked.display.some((it) => it.t === "reorder"));
+        assert.ok(!sensitive.display.some((it) => it.t === "reorder"));
     });
 });
 
