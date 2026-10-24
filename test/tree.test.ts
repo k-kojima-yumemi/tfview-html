@@ -45,6 +45,25 @@ describe("buildTree", () => {
         assert.deepEqual(modules, []);
     });
 
+    it("keeps the address Terraform takes for -target, also for a deposed object", () => {
+        const modules = buildTree({
+            resource_changes: [
+                {
+                    address: 'aws_instance.web["a"]',
+                    deposed: "00000001",
+                    change: {
+                        actions: ["delete"],
+                        before: { id: "i-1" },
+                        after: null,
+                    },
+                },
+            ],
+        });
+        const res = at(at(modules, 0).resources, 0);
+        assert.equal(res.address, 'aws_instance.web["a"] (deposed 00000001)');
+        assert.equal(res.target, 'aws_instance.web["a"]');
+    });
+
     it("assigns action badges", () => {
         assert.equal(findResource(tree, "terraform_data.ami").badge, "-/+");
         assert.equal(findResource(tree, "terraform_data.legacy[0]").badge, "-");

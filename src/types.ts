@@ -86,7 +86,10 @@ export interface ReorderView {
 
 export interface ViewResource {
     id: string;
+    /** Display address; a deposed object gets ` (deposed <key>)` appended. */
     address: string;
+    /** The address as Terraform takes it, e.g. for `-target`. */
+    target: string;
     actions: string[];
     badge: Badge;
     /** Used as the confirmation unit when the resource has no lines. */

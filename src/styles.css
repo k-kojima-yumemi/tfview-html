@@ -145,6 +145,19 @@ main { padding: 12px 16px 64px; }
 .caret.hidden { visibility: hidden; }
 input[type="checkbox"] { margin: 0; width: 15px; height: 15px; flex: none; cursor: pointer; accent-color: var(--add-fg); }
 .name { overflow-wrap: anywhere; }
+.copy {
+  flex: none;
+  padding: 0 5px;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--fg-muted);
+  background: none;
+  border: 1px solid transparent;
+  opacity: .8;
+}
+.head:hover .copy, .copy:focus-visible { opacity: 1; border-color: var(--border); }
+.copy svg { display: block; fill: none; stroke: currentColor; stroke-width: 1.3; }
+.copy.copied { color: var(--add-fg); opacity: 1; }
 .done > .head .name { color: var(--done); }
 .status { color: var(--fg-muted); font-family: var(--sans); font-size: 12px; font-weight: 400; white-space: nowrap; }
 .head .spacer { min-width: 8px; }

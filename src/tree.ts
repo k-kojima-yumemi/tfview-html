@@ -175,6 +175,7 @@ function buildResource(rc: ResourceChange, opts: LineOptions): ViewResource {
     const res: ViewResource = {
         id: `r:${address}`,
         address,
+        target: rc.address,
         actions,
         badge: badgeFor(actions, {
             importing: importing !== undefined,

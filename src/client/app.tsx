@@ -137,6 +137,58 @@ function lineAt(res: ViewResource, i: number): ViewLine {
     return line;
 }
 
+/** Copies with the Clipboard API, or with a hidden textarea where that API is unavailable. */
+async function copyText(text: string): Promise<boolean> {
+    try {
+        await navigator.clipboard.writeText(text);
+        return true;
+    } catch {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.append(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        area.remove();
+        return ok;
+    }
+}
+
+/** Copies `text` without folding the header it sits in, and shows a check mark for a moment. */
+function CopyButton({ text, label }: { text: string; label: string }) {
+    const [copied, setCopied] = useState(false);
+    useEffect(() => {
+        if (!copied) return;
+        const t = setTimeout(() => setCopied(false), 1500);
+        return () => clearTimeout(t);
+    }, [copied]);
+    return (
+        <button
+            type="button"
+            class={classNames("copy", copied && "copied")}
+            title={copied ? "コピーしました" : `${label}: ${text}`}
+            aria-label={label}
+            onClick={async () => setCopied(await copyText(text))}
+        >
+            {copied ? (
+                "✓"
+            ) : (
+                <svg
+                    viewBox="0 0 16 16"
+                    width="14"
+                    height="14"
+                    aria-hidden="true"
+                >
+                    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+                    <path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" />
+                </svg>
+            )}
+        </button>
+    );
+}
+
 /** A value, clipped when long or multi-line; click to show it all. */
 function Value({ text }: { text: string }) {
     const [expanded, setExpanded] = useState(false);
@@ -524,7 +576,7 @@ function NodeHead(props: {
 
     const onClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
-        if (target.closest("input") || !props.foldable) return;
+        if (target.closest("input, .copy") || !props.foldable) return;
         // Clicking the caret or the header text folds/unfolds, unless the user is selecting text.
         if (
             !target.closest(".caret") &&
@@ -606,6 +658,7 @@ function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
                     </span>
                 )}
                 <span class="name">{res.address}</span>
+                <CopyButton text={res.target} label="リソース名をコピー" />
                 <span class="action">{actionText(res)}</span>
             </NodeHead>
             {hasBody && (
