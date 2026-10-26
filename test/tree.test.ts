@@ -817,3 +817,128 @@ describe("imports", () => {
         assert.notEqual(a.resourceKey, b.resourceKey);
     });
 });
+
+describe("JSON strings", () => {
+    const policy = (statements: unknown[]) =>
+        JSON.stringify({ Version: "2012-10-17", Statement: statements });
+    const allow = (sid: string, action: string[]) => ({
+        Sid: sid,
+        Effect: "Allow",
+        Action: action,
+        Resource: "*",
+    });
+    const update = (before: unknown, after: unknown, extra = {}) =>
+        expandResource("aws_iam_policy.p", {
+            actions: ["update"],
+            before: { id: "p", policy: before },
+            after: { id: "p", policy: after },
+            ...extra,
+        });
+
+    it("compares a JSON string by its structure", () => {
+        const e = update(
+            policy([allow("A", ["s3:GetObject"])]),
+            policy([allow("A", ["s3:GetObject", "s3:PutObject"])]),
+        );
+        assert.deepEqual(
+            e.lines.map((l) => `${l.op} ${l.path} ${l.after}`),
+            ['+ jsondecode(policy).Statement[0].Action[1] "s3:PutObject"'],
+        );
+        const g = e.display.find((it) => it.t === "group");
+        assert.ok(g && g.t === "group");
+        assert.equal(g.json, true);
+        assert.deepEqual(layout([g]), [
+            "~ policy{",
+            "  ~ Statement[",
+            "    ~ {",
+            "      ~ Action[",
+            "        line (element)",
+            '        hidden {"elements":1}',
+            '      hidden {"attributes":3}',
+            '  hidden {"attributes":1}',
+        ]);
+    });
+
+    it("expands every member on create", () => {
+        const e = expandResource("aws_iam_policy.p", {
+            actions: ["create"],
+            before: null,
+            after: { policy: policy([allow("A", ["s3:GetObject"])]) },
+        });
+        assert.ok(e.lines.every((l) => l.op === "+"));
+        assert.ok(
+            e.lines.some(
+                (l) => l.path === "jsondecode(policy).Statement[0].Sid",
+            ),
+        );
+    });
+
+    it("offers matching statements by Sid", () => {
+        const e = update(
+            policy([allow("A", ["a"]), allow("B", ["b"])]),
+            policy([allow("B", ["b"]), allow("A", ["a2"])]),
+        );
+        const g = e.display.find((it) => it.t === "group");
+        assert.ok(g && g.t === "group");
+        const item = g.items.find((it) => it.t === "reorder");
+        assert.ok(item && item.t === "reorder", "no reorder item");
+        const bySid = item.options.find((o) => o.field === "Sid");
+        assert.ok(bySid);
+        assert.deepEqual(layout(bySid.view.items), [
+            "~ Statement[",
+            "  ~ {",
+            "    ctx Sid",
+            "    ~ Action[",
+            "      line (element)",
+            '    hidden {"attributes":2}',
+            '  hidden {"elements":1}',
+        ]);
+        assert.ok(
+            e.lines.some(
+                (l) =>
+                    l.path ===
+                    'jsondecode(policy).Statement[Sid="A"].Action[0]',
+            ),
+        );
+    });
+
+    it("keeps the string when only formatting changed", () => {
+        const e = update('{"a": 1}', '{"a":1}');
+        assert.deepEqual(
+            e.lines.map((l) => l.path),
+            ["policy"],
+        );
+    });
+
+    it("keeps the string when one side is not JSON, or after is unknown", () => {
+        assert.deepEqual(
+            update("x", '{"a":1}').lines.map((l) => l.path),
+            ["policy"],
+        );
+        const unknown = update('{"a":1}', null, {
+            after_unknown: { policy: true },
+        });
+        assert.deepEqual(
+            unknown.lines.map((l) => `${l.path} ${l.unknown}`),
+            ["policy true"],
+        );
+    });
+
+    it("does not decode a sensitive string", () => {
+        const e = update('{"a":1}', '{"a":2}', {
+            before_sensitive: { policy: true },
+            after_sensitive: { policy: true },
+        });
+        assert.deepEqual(
+            e.lines.map((l) => `${l.path} ${l.after}`),
+            ["policy undefined"],
+        );
+    });
+
+    it("keeps forces replacement inside the JSON", () => {
+        const e = update('{"a":1}', '{"a":2}', {
+            replace_paths: [["policy"]],
+        });
+        assert.equal(at(e.lines, 0).forcesReplacement, true);
+    });
+});

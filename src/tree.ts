@@ -10,6 +10,7 @@ import type {
     DisplayItem,
     Hidden,
     LineOp,
+    ReorderOption,
     ReorderView,
     ViewLine,
     ViewModule,
@@ -60,7 +61,18 @@ interface KeySegment {
     indexes: number[];
 }
 
-type Segment = Key | KeySegment;
+/** Marks where a path enters the JSON decoded from a string attribute (`jsondecode(policy).Statement`). */
+const jsonSegment = { json: true } as const;
+
+type Segment = Key | KeySegment | typeof jsonSegment;
+
+function isJsonSegment(s: Segment | undefined): s is typeof jsonSegment {
+    return s === jsonSegment;
+}
+
+function inJson(segs: readonly Segment[]): boolean {
+    return segs.some(isJsonSegment);
+}
 
 export const rootModule = "(root)";
 
@@ -282,6 +294,22 @@ export function expandResource(
         if (unknown || sensitive)
             return leaf(segs, label, b, a, unknown, sensitive);
 
+        const decoded = decodeJsonPair(b, a);
+        if (decoded) {
+            // A JSON string (a policy, ...) is compared by its structure, as `terraform plan` shows `jsonencode(...)`.
+            const g = group(
+                [...segs, jsonSegment],
+                label,
+                kindOf(decoded.b ?? decoded.a) === "array" ? "list" : "map",
+                decoded.b,
+                decoded.a,
+                undefined,
+                undefined,
+                undefined,
+            );
+            return { items: g ? [{ ...g, json: true }] : [], hiddenBlocks: 0 };
+        }
+
         const bk = kindOf(b);
         const ak = kindOf(a);
         const recursable =
@@ -299,7 +327,13 @@ export function expandResource(
                 : { items: [], hiddenBlocks: 0 };
         }
 
-        if (!inList && label !== undefined && isBlockList(b, a)) {
+        // Inside JSON a list of objects stays a list: `Statement = [ { ... }, ]`.
+        if (
+            !inList &&
+            label !== undefined &&
+            !inJson(segs) &&
+            isBlockList(b, a)
+        ) {
             // A list of objects reads like repeated nested blocks: `ingress { ... }`.
             // `matchedBy`: the field the elements were paired up by, shown in each block even when unchanged.
             const blocks = (
@@ -371,8 +405,29 @@ export function expandResource(
         const style = bk === "array" || ak === "array" ? "list" : "map";
         const g = group(segs, label, style, b, a, u, bs, as);
         if (g && style === "list" && !inList && label !== undefined) {
+            const options: ReorderOption[] = [];
+            if (inJson(segs) && isBlockList(b, a)) {
+                const lists: BlockLists = { b, a, u, bs, as };
+                for (const field of reorderFields(lists)) {
+                    options.push({
+                        id: field,
+                        field,
+                        view: {
+                            items: [
+                                objectList(
+                                    g.op,
+                                    label,
+                                    matchByField(segs, field, lists),
+                                    field,
+                                ),
+                            ],
+                        },
+                    });
+                }
+            }
             const byValue = unordered(segs, label, b, a, u, bs, as);
-            if (byValue) {
+            if (byValue) options.push({ id: valueOptionId, view: byValue });
+            if (options.length > 0) {
                 return {
                     items: [
                         {
@@ -380,7 +435,7 @@ export function expandResource(
                             path: formatPath(segs),
                             label,
                             base: { items: [g] },
-                            options: [{ id: valueOptionId, view: byValue }],
+                            options,
                         },
                     ],
                     hiddenBlocks: 0,
@@ -388,6 +443,46 @@ export function expandResource(
             }
         }
         return { items: g ? [g] : [], hiddenBlocks: 0 };
+    };
+
+    /** A list of objects inside JSON, its elements paired up by `field`: `label = [ { ... }, ]`. */
+    const objectList = (
+        op: LineOp,
+        label: string,
+        entries: BlockEntry[],
+        field: string,
+    ): Extract<DisplayItem, { t: "group" }> => {
+        const items: DisplayItem[] = [];
+        let unchanged = 0;
+        for (const e of entries) {
+            const g = group(
+                e.segs,
+                undefined,
+                "map",
+                e.b,
+                e.a,
+                e.u,
+                e.bs,
+                e.as,
+                [field],
+            );
+            if (g) items.push(g);
+            else unchanged++;
+        }
+        const list: Extract<DisplayItem, { t: "group" }> = {
+            t: "group",
+            op,
+            style: "list",
+            label,
+            items,
+        };
+        const hidden = compactHidden({
+            attributes: 0,
+            blocks: 0,
+            elements: unchanged,
+        });
+        if (hidden) list.hidden = hidden;
+        return list;
     };
 
     /**
@@ -470,6 +565,7 @@ export function expandResource(
         const items: DisplayItem[] = [];
         const context: DisplayItem[] = [];
         const hidden = { attributes: 0, blocks: 0, elements: 0 };
+        const json = inJson(segs);
         let changed = false;
 
         for (const k of childKeys(b, a, u)) {
@@ -500,7 +596,11 @@ export function expandResource(
                 child(as, k) !== true;
             if (shownAsContext)
                 context.push({ t: "ctx", label: k, value: display(ca) });
-            else if (isBlockList(cb, ca))
+            // Inside JSON there are no blocks: object members are attributes, as `terraform plan` counts them.
+            else if (json) {
+                if (style === "list") hidden.elements++;
+                else hidden.attributes++;
+            } else if (isBlockList(cb, ca))
                 hidden.blocks += Math.max(arrayLength(cb), arrayLength(ca));
             // Without the provider schema, a nested map (e.g. `tags`) is told from an object by position only.
             else if (style === "list" || (style === "map" && segs.length > 0))
@@ -749,6 +849,7 @@ export function formatPath(segs: readonly Segment[]): string {
     let out = "";
     for (const s of segs) {
         if (typeof s === "number") out += `[${s}]`;
+        else if (isJsonSegment(s)) out = `jsondecode(${out})`;
         else if (typeof s === "object")
             out +=
                 s.field === undefined
@@ -766,12 +867,50 @@ function overlaps(rp: readonly Key[], segs: readonly Segment[]): boolean {
     for (let i = 0; i < n; i++) {
         const r = rp[i];
         const s = segs[i];
+        // A string attribute is replaced as a whole.
+        if (isJsonSegment(s)) return true;
         if (s !== undefined && typeof s === "object") {
             // `replace_paths` address list elements by position.
             if (typeof r !== "number" || !s.indexes.includes(r)) return false;
         } else if (r !== s) return false;
     }
     return true;
+}
+
+/**
+ * Both sides of a changed string attribute decoded from JSON, when each side
+ * is absent or the JSON of an object or array (of the same kind when both are
+ * present). Undefined otherwise, and when the two differ in formatting only:
+ * then the strings themselves are the change.
+ */
+function decodeJsonPair(
+    b: unknown,
+    a: unknown,
+): { b: unknown; a: unknown } | undefined {
+    const db = decodeJson(b);
+    const da = decodeJson(a);
+    if (db === undefined || da === undefined) return undefined;
+    if (isAbsent(db) && isAbsent(da)) return undefined;
+    if (!isAbsent(db) && !isAbsent(da) && kindOf(db) !== kindOf(da))
+        return undefined;
+    if (b !== a && canonical(db) === canonical(da)) return undefined;
+    return { b: db, a: da };
+}
+
+/** The object or array a string holds as JSON; null for an absent value; undefined for anything else. */
+function decodeJson(v: unknown): unknown {
+    if (isAbsent(v)) return null;
+    if (typeof v !== "string") return undefined;
+    const text = v.trim();
+    if (!text.startsWith("{") && !text.startsWith("[")) return undefined;
+    try {
+        const parsed: unknown = JSON.parse(text);
+        return kindOf(parsed) === "object" || kindOf(parsed) === "array"
+            ? parsed
+            : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 /** Display text of a present value (callers never pass the missing side of a `+` / `-` line). */

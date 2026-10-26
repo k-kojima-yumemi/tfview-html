@@ -376,9 +376,14 @@ function LineRow(props: {
     );
 }
 
-/** A list of plain values that can be compared by value: it renders as `label = [ ... ]`, so its label lines up with its siblings'. */
+/** A list of plain values that can be compared by value, ignoring order. */
 function isValueList(it: ReorderItem): boolean {
     return it.options.some((o) => o.field === undefined);
+}
+
+/** Renders as `label = [ ... ]` (plain values, or objects inside JSON), not as repeated blocks. */
+function isAssignment(it: ReorderItem): boolean {
+    return !it.base.items.some((b) => b.t === "group" && b.style === "block");
 }
 
 function reorderOptionText(o: ReorderOption): string {
@@ -403,7 +408,7 @@ function Items(props: {
             0,
             ...items.map((it) =>
                 (it.t === "group" && it.style === "block") ||
-                (it.t === "reorder" && !isValueList(it))
+                (it.t === "reorder" && !isAssignment(it))
                     ? 0
                     : (it.label?.length ?? 0),
             ),
@@ -476,7 +481,7 @@ function Items(props: {
                                 items={view.items}
                                 depth={depth}
                                 inList={false}
-                                width={isValueList(it) ? width : undefined}
+                                width={isAssignment(it) ? width : undefined}
                             />
                             {hiddenComments(view.hidden).map((c) => (
                                 <PlainRow cls="comment">
@@ -510,6 +515,7 @@ function Items(props: {
                                             label={it.label}
                                             width={width}
                                         />
+                                        {it.json && "jsonencode("}
                                         {it.style === "list" ? "[" : "{"}
                                     </>
                                 )}
@@ -530,6 +536,7 @@ function Items(props: {
                         <PlainRow cls="grp-close" done={done}>
                             <Code depth={depth}>
                                 {it.style === "list" ? "]" : "}"}
+                                {it.json && ")"}
                                 {inList ? "," : ""}
                             </Code>
                         </PlainRow>

@@ -52,6 +52,8 @@ export type DisplayItem =
           label?: string;
           items: DisplayItem[];
           hidden?: Hidden;
+          /** The value is a string holding this JSON: rendered as `label = jsonencode({ ... })`. */
+          json?: true;
       }
     /**
      * A list of objects shown as repeated blocks, which the viewer can also
