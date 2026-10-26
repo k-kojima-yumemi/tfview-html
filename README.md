@@ -1,169 +1,174 @@
 # tfview
 
-Terraform の plan 差分を、GitHub の PR の「Viewed」のように確認済みにして畳んでいけるレビュー用ツールです。
-plan から静的な HTML を1枚生成し、ブラウザで開きます。
+English | [日本語](README_ja.md)
 
-- 確認済みの状態はブラウザに保存されます。再 plan しても、内容が同じ差分は確認済みのまま引き継がれ、変わった行だけが開いた状態で出てきます。
-- module / resource / line のどの階層でも確認済みにできます。上位を確認済みにすると、配下がまとめて畳まれます。
-- サーバーや常駐プロセスは使いません。生成したらプロセスは終了します。
+A review tool for Terraform plan diffs. Like "Viewed" on a GitHub PR, you mark changes as viewed and fold them away.
+It generates a single static HTML file from a plan and opens it in the browser.
 
-## インストール
+- Viewed state is stored in the browser. After a re-plan, lines with identical content stay viewed, and only the lines that changed show up open.
+- You can mark things as viewed at any level: module, resource or line. Marking a parent folds everything under it.
+- No server or resident process. The process exits once the file is generated.
+- The page picks its language (English / Japanese) from the browser. Add `?lang=en` or `?lang=ja` to the URL, or use the selector in the top bar, to switch. The CLI is English only.
 
-npm には公開していません。手元でビルドして使います。必要なのは Node.js 24 以上です。
+## Install
+
+Not published to npm. Build it locally. Node.js 24 or later is required.
 
 ```sh
 git clone git@github.com:k-kojima-yumemi/tfview-html.git
 cd tfview-html
 npm install
-npm run build      # dist/tfview.js をビルドする
-npm link           # tfview コマンドとして登録する(任意)
+npm run build      # builds dist/tfview.js
+npm link           # registers the tfview command (optional)
 ```
 
-`npm link` しない場合は、`node <clone したパス>/dist/tfview.js` で直接実行できます。
-`dist/tfview.js` は依存のない1ファイルなので、好きな場所にコピーして使っても構いません。
+Without `npm link`, run it directly with `node <path to clone>/dist/tfview.js`.
+`dist/tfview.js` is a single dependency-free file, so you can also copy it anywhere.
 
-## 使い方
+## Usage
 
-`terraform init` 済みのディレクトリで実行します。
+Run it in a directory where `terraform init` has been done.
 
 ```sh
 terraform plan -out=tfplan
-tfview tfplan      # npm link していない場合: node <clone したパス>/dist/tfview.js tfplan
+tfview tfplan      # without npm link: node <path to clone>/dist/tfview.js tfplan
 ```
 
-`./tfview.html` が生成され(毎回上書き)、既定のブラウザで開きます。
+`./tfview.html` is generated (overwritten each time) and opened in your default browser.
 
-`terraform show -json` の出力も渡せます。
+You can also pass the output of `terraform show -json`.
 
 ```sh
 terraform show -json tfplan > plan.json
 tfview plan.json
 ```
 
-### オプション
+### Options
 
-| オプション | 説明 |
+| Option | Description |
 |---|---|
-| `<planfile>` | バイナリ plan、または `terraform show -json` の出力。先頭バイトで判別します(`PK` ならバイナリ、`{` なら JSON) |
-| `-o, --out <path>` | 出力先。既定は `./tfview.html` |
-| `--bin <name>` | 実行する Terraform のコマンド。既定は `terraform`(例: `--bin tofu`) |
-| `--no-open` | 生成のみで、ブラウザを開かない |
-| `--show-sensitive` | sensitive な値も HTML に埋め込んで表示する(既定は OFF。後述) |
+| `<planfile>` | A binary plan, or the output of `terraform show -json`. Detected from the first bytes (`PK` is a binary plan, `{` is JSON) |
+| `-o, --out <path>` | Output path. Default: `./tfview.html` |
+| `--bin <name>` | Terraform command to run. Default: `terraform` (e.g. `--bin tofu`) |
+| `--no-open` | Generate only; do not open the browser |
+| `--show-sensitive` | Embed and show sensitive values in the HTML (off by default; see below) |
 
-バイナリ plan を渡すと、**コマンドを実行したカレントディレクトリ**で `terraform show -json <planfile>` を実行します。`terraform init` 済みのディレクトリで実行してください。
+For a binary plan, `terraform show -json <planfile>` runs in the **current directory of the command**. Run it in a directory where `terraform init` has been done.
 
-## 画面
+## The page
 
-- **チェックボックス**: module / resource / line のすべての階層にあり、階層ごとに一段ずつ右にずれています。内部の確認状態は line 単位で持っていて、module や resource のチェックは配下の line をまとめて切り替えます。
-- **進捗**: 上部に「N / M line 確認済み」と出ます。resource と module の単位の進捗も、その横に小さく出します。
-- **見出しの固定**: スクロールしても、いま見ている module と resource の見出しが上部に貼り付くので、上に戻らずにチェックできます。
-- **チェック**: 親をチェックすると配下の全行が確認済みになって畳まれます。子を全部チェックすると、親も自動で確認済みになります。一部だけ確認済みの親は中間状態になります。
-- **折りたたみ**: キャレット(›)か見出しをクリックすると開閉できます。開いても確認済みのままです。
-- **アドレスのコピー**: resource 名の右のボタンで、アドレス(`terraform apply -target=...` に渡せる形)をコピーできます。押しても見出しは開閉しません。
-- **前回からの引き継ぎ**: 前回確認済みで内容が同じ行は、確認済みとして畳まれます。見出しに「前回確認済み N 行」と出ます。前回確認したあとで値が変わった行には「更新あり」の印が付きます。
-- **順序を無視して比較**: オブジェクトのリスト(CodeBuild の `environment_variable` など)は、既定では位置どうしで比べます。順番が入れ替わっただけの要素まで差分に出るときは、リストの上にある選択肢から `name` のようなフィールドを選ぶと、そのフィールドの値が同じ要素どうしで比較します(要素はその値の順に並び、各ブロックの先頭に比較に使ったフィールドを表示します)。選べるのは、全要素で値が重複せず、sensitive や unknown でない文字列のフィールドで、要素が入れ替わっているリストだけです。切り替えはリストごとで、保存されず、開き直すと位置の比較に戻ります。位置の比較とフィールドでの比較では行のキーが別なので、確認済みの状態は引き継がれません。
-- **順序を無視して比較**(値のリスト): `cidr_blocks` のような文字列や数値のリストで、並び順が変わっているときは、リストの上の選択肢で「順序を無視して比較」を選べます。追加された値は `+`、削除された値は `-` の行になり、両側にある値は `# (N unchanged elements hidden)` にまとめます。並び順が変わっただけなら、変更の行はなくなります。選べるのは、値が重複せず、sensitive や unknown を含まないリストだけです。
-- **表示**: `terraform plan` に近い入れ子の形で表示します。
-  - `tags = { ... }`、`ingress { ... }`、`cidr_blocks = [ ... ]` のように、まとまりごとに括ってインデントします。
-  - 変わっていない属性は `# (N unchanged attributes hidden)` にまとめます。`id` と `name` は、変わっていなくても文脈として表示します。
-  - チェックできるのは変更のある行だけです。括弧やコメントの行は読むためのものです。
-  - plan JSON にはプロバイダーのスキーマが含まれないので、ブロックかどうかは値の形で推定しています。オブジェクトのリストをブロックとして、ネストした map の中身を elements として数えます。そのため、件数の数え方が Terraform と少し違うことがあります。
-  - `import` ブロックで import されるリソースには、見出しに `import` タグを付けます。本文の先頭には、`terraform plan` と同じく `# (imported from "...")` を出します。差分のない import(actions が `no-op`)も一覧から外さず、`will be imported` として表示します。
-  - `moved` ブロックなどでアドレスが変わったリソースには、見出しに `moved` タグを付け、本文の先頭に `# (moved from ...)` を出します。移動だけで差分のないもの(actions が `no-op`)も一覧から外さず、`has moved` として表示します。アドレスが変わると行のキーも変わるので、移動前に確認済みにした行は引き継がれません。
-  - `(known after apply)`、`forces replacement`、`(sensitive)` は目立つ形で表示します。長い値や複数行の値は省略され、クリックで全体を表示します。行にマウスを乗せると、属性のフルパスが出ます。
+- **Checkboxes**: at every level (module / resource / line), each level indented one step to the right. Internally the viewed state is kept per line; a module or resource checkbox toggles all the lines under it.
+- **Progress**: the top shows "N / M lines viewed". Resource and module progress appear next to it in smaller text.
+- **Sticky headings**: while scrolling, the headings of the current module and resource stick to the top, so you can check things without scrolling back up.
+- **Checking**: checking a parent marks every line under it as viewed and folds it. Checking all children marks the parent automatically. A parent with only some children viewed shows the indeterminate state.
+- **Folding**: click the caret (›) or the heading to expand / collapse. Expanding does not undo "viewed".
+- **Copy address**: the button right of a resource name copies its address (in a form `terraform apply -target=...` accepts). Pressing it does not fold the heading.
+- **Carry-over from last time**: lines that were viewed before with identical content are folded as viewed. The heading shows "N viewed before". Lines whose value changed after you viewed them get an "updated" mark.
+- **Compare ignoring order** (lists of objects): lists of objects (such as CodeBuild's `environment_variable`) are compared by position by default. When elements that merely changed order show up as diffs, pick a field such as `name` from the selector above the list; elements with the same value of that field are then compared with each other (elements are sorted by that value, and each block starts with the field used for matching). The selector is offered only for lists whose elements have been reordered and have a string field that is unique across all elements and neither sensitive nor unknown. The choice is per list, is not saved, and goes back to by-position when you reopen the page. By-position and by-field comparisons use different line keys, so viewed state is not carried between them.
+- **Compare ignoring order** (lists of values): for lists of strings or numbers such as `cidr_blocks` whose order changed, the selector above the list offers "Compare ignoring order". Added values become `+` lines, removed values `-` lines, and values on both sides are summarized as `# (N unchanged elements hidden)`. If only the order changed, no change lines remain. The selector is offered only for lists with no duplicate values and no sensitive or unknown values.
+- **Layout**: shown in a nested form close to `terraform plan`.
+  - Groups are wrapped and indented, like `tags = { ... }`, `ingress { ... }` and `cidr_blocks = [ ... ]`.
+  - Unchanged attributes are summarized as `# (N unchanged attributes hidden)`. `id` and `name` are shown as context even when unchanged.
+  - Only changed lines can be checked. Brackets and comment lines are there for reading.
+  - The plan JSON carries no provider schema, so whether something is a block is inferred from the shape of the value. Lists of objects count as blocks, and the contents of nested maps count as elements. The counts can therefore differ slightly from Terraform's.
+  - Resources imported by an `import` block get an `import` tag in the heading. The body starts with `# (imported from "...")`, as in `terraform plan`. Imports with no diff (actions `no-op`) are not dropped from the list; they are shown as `will be imported`.
+  - Resources whose address changed, for example through a `moved` block, get a `moved` tag in the heading, and the body starts with `# (moved from ...)`. Moves with no diff (actions `no-op`) are not dropped either; they are shown as `has moved`. The line keys change with the address, so lines viewed before the move are not carried over.
+  - `(known after apply)`, `forces replacement` and `(sensitive)` are highlighted. Long or multi-line values are clipped; click to show them in full. Hovering a line shows the full path of the attribute.
 
-## sensitive な値
+## Sensitive values
 
-既定では、sensitive な値は HTML に**一切埋め込まず**、`(sensitive)` とだけ表示します。
+By default, sensitive values are **not embedded** in the HTML at all; only `(sensitive)` is shown.
 
-- plan JSON の `before_sensitive` / `after_sensitive` で印が付いた値を隠します。
-- 隠すのは、Terraform が印を付けた値だけです。印の付いていない値は、`terraform plan` と同じく、そのまま表示します(例: `terraform_data` の `output` は、sensitive な `input` を印なしで繰り返すので、`output` 側の値は表示されます)。
-- ハッシュキーの計算には実際の値を使います。sensitive な値が変わると、その行は未確認に戻ります。
+- Values marked in the plan JSON's `before_sensitive` / `after_sensitive` are hidden.
+- Only values Terraform marked are hidden. Unmarked values are shown as-is, like `terraform plan` does (for example, a `terraform_data` `output` repeats a sensitive `input` without the mark, so the `output` value is shown).
+- The actual values are used to compute the hash keys. If a sensitive value changes, its line goes back to unviewed.
 
-`--show-sensitive` を付けると、実際の値を埋め込んで表示します。行には `sensitive` のタグが付き、画面上部に警告が出ます。生成した HTML には秘密情報が平文で含まれるので、共有やコミットには注意してください。キーはどちらでも同じなので、ON / OFF を切り替えても確認済み状態は引き継がれます。
+With `--show-sensitive`, the actual values are embedded and shown. Such lines get a `sensitive` tag and a warning appears at the top of the page. The generated HTML contains secrets in plain text, so be careful when sharing or committing it. The keys are the same either way, so viewed state carries over when you toggle this on or off.
 
-## 確認済み状態の保存
+## Saving viewed state
 
-- ブラウザの `localStorage` に、キー名 `tfview:<projectId>` で保存します。`projectId` は、生成時のカレントディレクトリの絶対パスから計算したハッシュです。
-- 保存するのはハッシュだけです。属性の値やリソース名は保存しません。
-- 再生成した HTML を開くと、現在の plan に存在しないキーを保存データから削除します。
-- localStorage を使えない環境では、メモリ上の状態だけで動き、画面に「状態を保存できません」と表示します。
+- Saved in the browser's `localStorage` under the key `tfview:<projectId>`. `projectId` is a hash of the absolute path of the current directory at generation time.
+- Only hashes are stored. Attribute values and resource names are not.
+- When a regenerated HTML is opened, keys that no longer exist in the current plan are removed from the saved data.
+- Where localStorage is unavailable, it works with in-memory state only and the page shows a message that state cannot be saved.
 
-### エクスポート / インポート
+### Export / import
 
-画面上部のボタンで、確認済み状態を JSON ファイルに書き出したり、読み込んだりできます。
+The buttons at the top of the page write the viewed state to a JSON file and read it back.
 
-- localStorage が消えたときの復旧や、ブラウザを変えるときに使います。
-- チームで共有するときにも使えます。中身はハッシュだけなので、値は漏れません。
-- 読み込みは**追加(マージ)**です。現在の plan に無いキーは無視します。
-- ハッシュはアドレスと値から計算するので、別のディレクトリや別の人が生成した同じ plan にも適用できます。
+- Use it to recover when localStorage is lost, or when switching browsers.
+- It also works for sharing within a team. The contents are only hashes, so no values leak.
+- Import **adds** (merges). Keys not in the current plan are ignored.
+- Hashes are computed from address and value, so a file also applies to the same plan generated in another directory or by another person.
 
-### `file://` での localStorage の挙動
+### localStorage behavior on `file://`
 
-| ブラウザ | 同じパスに上書き再生成 | 別ディレクトリとの混在 | 確認方法 |
+| Browser | Regenerating over the same path | Mixing with other directories | How verified |
 |---|---|---|---|
-| Chrome | 引き継がれる | 混ざらない | 自動検証済み(ヘッドレス Chrome) |
-| Firefox | 未検証 | 未検証 | 手動で確認してください |
-| Safari | 未検証 | 未検証 | 手動で確認してください |
+| Chrome | Carried over | Not mixed | Verified automatically (headless Chrome) |
+| Firefox | Not verified | Not verified | Check manually |
+| Safari | Not verified | Not verified | Check manually |
 
-- Chrome では、すべての `file://` ページが同じ localStorage を共有していました。別ディレクトリの状態は `projectId` の違うキーに入るので、混ざりません。
-- ファイルごとに保存領域を分けるブラウザでも、出力先が固定パス(`./tfview.html`)なら同じ領域になる前提です。この前提が成り立たないブラウザでは、エクスポート / インポートで運用してください。
+- In Chrome, all `file://` pages shared the same localStorage. State from another directory goes under a key with a different `projectId`, so it does not mix.
+- For browsers that give each file its own storage, this relies on the output path being fixed (`./tfview.html`) so the storage stays the same. In a browser where that does not hold, use export / import.
 
-手動確認の手順:
+Manual check:
 
-1. `tfview tfplan` で生成し、いくつかチェックする。
-2. 同じディレクトリでもう一度 `tfview tfplan` を実行し、チェックが残っているか確認する。
-3. 別のディレクトリで生成した HTML を開き、チェックが混ざっていないか確認する。
+1. Generate with `tfview tfplan` and check a few lines.
+2. Run `tfview tfplan` again in the same directory and confirm the checks remain.
+3. Open an HTML generated in another directory and confirm the checks are not mixed.
 
-## 仕組み
+## How it works
 
-1. plan JSON の `resource_changes` から、no-op と read を除外します。
-2. `change.before` / `change.after` を再帰的に比較し、変わったリーフを1行にします。
-3. 各行のハッシュキーを計算します。
+1. Exclude no-op and read from the plan JSON's `resource_changes`.
+2. Compare `change.before` / `change.after` recursively; each changed leaf becomes one line.
+3. Compute a hash key for each line.
    - `lineKey = sha256(address \0 attrPath \0 canonical(before) \0 canonical(after))`
-   - `canonical()` は、オブジェクトのキーをソートした安定な JSON 文字列化です。
-   - 行を持たないリソースは、`resourceKey = sha256(address \0 actions)` で確認状態を持ちます。
-4. module → resource → line のツリーとキーを HTML に埋め込みます。CSS と JS はインラインで、外部リソースには依存しません。
+   - `canonical()` is a stable JSON serialization with sorted object keys.
+   - A resource with no lines holds its viewed state through `resourceKey = sha256(address \0 actions)`.
+4. The module → resource → line tree and the keys are embedded in the HTML. CSS and JS are inline; nothing depends on external resources.
 
-### 既知の限界
+### Known limitations
 
-- plan のたびに変わる値(タイムスタンプ、ランダム ID など)は、毎回未確認に戻ります。
-- リストの順序や index が変わると、パスが変わって未確認に戻ります。
-- `moved` やリファクタでアドレスが変わったリソースは、新規扱いになります。
-- ネストした module は、`module.a.module.b` を1階層として表示します。
+- Values that change on every plan (timestamps, random IDs) go back to unviewed every time.
+- If the order or index of a list changes, the path changes and the line goes back to unviewed.
+- A resource whose address changed through `moved` or a refactor is treated as new.
+- Nested modules are shown as one level, `module.a.module.b`.
 
-## 開発
+## Development
 
-Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定しています。
+The Node.js version is pinned to `24.22.1` with [Volta](https://volta.sh/).
 
 ```sh
-npm install        # devDependencies を入れる
-npm run build      # Rolldown で dist/tfview.js を1本だけ出力
-npm run format     # Biome でフォーマットと自動修正
-npm run ci         # Biome のチェックと tsc の型チェック(CI と同じ)
+npm install        # install devDependencies
+npm run build      # emit a single dist/tfview.js with Rolldown
+npm run format     # format and autofix with Biome
+npm run ci         # Biome check and tsc type check (same as CI)
 npm test           # Vitest
 node dist/tfview.js test/fixtures/plan.json --no-open
 ```
 
-- `dist/tfview.js` は、CLI、UI(TSX + `hono/jsx/dom`)、CSS をすべて含んだ1ファイルです。実行時の依存はないので、このファイルだけを渡せば `node tfview.js tfplan` で動きます。
-- UI は `src/client/app.tsx` を Rolldown で IIFE にまとめたものです。生成する HTML にインラインで埋め込みます。
-- `build/plugins.ts` のプラグイン(`?text` 付きの import でファイルを文字列として読む、UI をまとめて文字列にする)は、Rolldown のビルドと Vitest の両方で使います。
+- `dist/tfview.js` is one file containing the CLI, the UI (TSX + `hono/jsx/dom`) and the CSS. It has no runtime dependencies, so handing over just this file is enough: `node tfview.js tfplan`.
+- The UI is `src/client/app.tsx` bundled into an IIFE by Rolldown, and inlined into the generated HTML.
+- The plugins in `build/plugins.ts` (an import with `?text` reads a file as a string; the UI is bundled into a string) are used by both the Rolldown build and Vitest.
+- UI text lives in `src/client/i18n.ts`. To add a language, add an object there with the same shape as `en`, and register it in `locales`, `localeNames` and `isLocale`. The CLI stays English only.
 
 ```
-bin/tfview.ts        CLI エントリ(引数解析、生成、ブラウザを開く)
-src/show.ts          入力判別、terraform show -json の実行
-src/tree.ts          plan JSON -> module/resource/line のツリー、行の展開と表示用の入れ子、sensitive のマスク
-src/hash.ts          canonical JSON、キー計算
-src/render.ts        HTML を生成する
-src/document.tsx     HTML 文書(サーバー側の hono/jsx)。値のエスケープは JSX に任せ、<script> に入れる JSON だけ jsonForScript で直列化する
-src/generate.ts      上記をつなぐ
+bin/tfview.ts        CLI entry (argument parsing, generation, opening the browser)
+src/show.ts          input detection, running terraform show -json
+src/tree.ts          plan JSON -> module/resource/line tree, expanding lines into display nesting, sensitive masking
+src/hash.ts          canonical JSON, key computation
+src/render.ts        generates the HTML
+src/document.tsx     the HTML document (server-side hono/jsx). JSX escapes values; only the JSON put into <script> is serialized with jsonForScript
+src/generate.ts      ties the above together
 src/styles.css       CSS
-src/client/app.tsx   UI(hono/jsx/dom)
-src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ、インポート)。DOM に依存しない純粋な関数
-src/client/storage.ts localStorage の読み書き
-build/plugins.ts     Rolldown / Vitest 共用のプラグイン
-test/                Vitest の単体テスト
-test/fixtures/       検証用の plan.json
+src/client/app.tsx   UI (hono/jsx/dom)
+src/client/i18n.ts   UI text per language and locale detection
+src/client/state.ts  viewed-state operations (check, fold, carry-over, import). Pure functions with no DOM dependency
+src/client/storage.ts reading and writing localStorage
+build/plugins.ts     plugins shared by Rolldown / Vitest
+test/                Vitest unit tests
+test/fixtures/       plan.json for verification
 ```
 
-`test/fixtures/plan.json` は、組み込みの `terraform_data` リソースだけを使った Terraform プロジェクトから生成したものです。create / update / delete / replace / sensitive / unknown / for_each / ネストした module を含みます。sensitive 変数の値(`hunter2-...`)はテスト用のダミーです。
+`test/fixtures/plan.json` was generated from a Terraform project that uses only the built-in `terraform_data` resource. It covers create / update / delete / replace / sensitive / unknown / for_each / nested modules. The sensitive variable value (`hunter2-...`) is a dummy for testing.

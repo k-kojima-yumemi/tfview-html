@@ -43,7 +43,7 @@ export function Document({
     client: string;
 }) {
     return (
-        <html lang="ja">
+        <html lang="en">
             <head>
                 <meta charset="utf-8" />
                 <meta

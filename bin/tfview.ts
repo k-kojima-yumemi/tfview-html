@@ -7,16 +7,16 @@ import { UserError } from "../src/show.ts";
 
 const usage = `Usage: tfview <planfile> [options]
 
-  <planfile>        バイナリ plan (terraform plan -out=tfplan) または terraform show -json の出力
+  <planfile>        binary plan (terraform plan -out=tfplan) or the output of terraform show -json
 
 Options:
-  -o, --out <path>  出力先 (既定: ./tfview.html)
-      --bin <name>  Terraform のコマンド (既定: terraform。例: tofu)
-      --no-open     生成のみで、ブラウザを開かない
+  -o, --out <path>  output path (default: ./tfview.html)
+      --bin <name>  Terraform command to run (default: terraform, e.g. tofu)
+      --no-open     generate only; do not open the browser
       --show-sensitive
-                    sensitive な値も HTML に埋め込んで表示する (既定: OFF。HTML の扱いに注意)
-  -h, --help        このヘルプを表示
-  -v, --version     バージョンを表示`;
+                    embed and show sensitive values in the HTML (default: off; handle the HTML with care)
+  -h, --help        show this help
+  -v, --version     show the version`;
 
 function openInBrowser(path: string): void {
     const [cmd, args] =
@@ -34,13 +34,13 @@ function openInBrowser(path: string): void {
         });
         child.on("error", () =>
             console.error(
-                "ブラウザを開けませんでした。上のファイルを直接開いてください。",
+                "Could not open the browser. Open the file above directly.",
             ),
         );
         child.unref();
     } catch {
         console.error(
-            "ブラウザを開けませんでした。上のファイルを直接開いてください。",
+            "Could not open the browser. Open the file above directly.",
         );
     }
 }
@@ -81,7 +81,7 @@ async function main(argv: string[]): Promise<number> {
     const [planfile] = positionals;
     if (planfile === undefined || positionals.length !== 1) {
         console.error(
-            `${positionals.length === 0 ? "tfview: <planfile> を指定してください" : "tfview: <planfile> は1つだけ指定してください"}\n\n${usage}`,
+            `${positionals.length === 0 ? "tfview: <planfile> is required" : "tfview: exactly one <planfile> is allowed"}\n\n${usage}`,
         );
         return 2;
     }
@@ -97,7 +97,7 @@ async function main(argv: string[]): Promise<number> {
         console.log(path);
         if (values["show-sensitive"]) {
             console.error(
-                "warning: --show-sensitive: この HTML には sensitive な値が平文で含まれます。共有やコミットに注意してください",
+                "warning: --show-sensitive: this HTML contains sensitive values in plain text; be careful when sharing or committing it",
             );
         }
         if (!values["no-open"]) openInBrowser(path);

@@ -20,6 +20,13 @@ import type {
     ViewResource,
 } from "../types.ts";
 import {
+    detectLocale,
+    isLocale,
+    type Locale,
+    localeNames,
+    locales,
+} from "./i18n.ts";
+import {
     buildModel,
     confirmedCount,
     importSaved,
@@ -79,8 +86,15 @@ interface Ctx {
 // ---------------------------------------------------------------------------
 // Small pieces
 
-function plural(n: number, word: string): string {
-    return `${n} ${word}${n === 1 ? "" : "s"}`;
+const locale: Locale = detectLocale(location.search, navigator.languages);
+const t = locales[locale];
+document.documentElement.lang = locale;
+
+/** Reloads with `?lang=`; the viewed state lives in localStorage, so nothing is lost. */
+function switchLocale(next: Locale): void {
+    const url = new URL(location.href);
+    url.searchParams.set("lang", next);
+    location.assign(url);
 }
 
 function opClass(badge: string): string {
@@ -168,7 +182,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
         <button
             type="button"
             class={classNames("copy", copied && "copied")}
-            title={copied ? "コピーしました" : `${label}: ${text}`}
+            title={copied ? t.copied : `${label}: ${text}`}
             aria-label={label}
             onClick={async () => setCopied(await copyText(text))}
         >
@@ -205,7 +219,7 @@ function Value({ text }: { text: string }) {
         <button
             type="button"
             class={classNames("val", "clip", expanded && "expanded")}
-            title={expanded ? "クリックで折りたたむ" : "クリックで全体を表示"}
+            title={expanded ? t.clickToCollapse : t.clickToExpand}
             onClick={() => setExpanded(!expanded)}
         >
             {expanded ? text : short}
@@ -344,7 +358,7 @@ function LineRow(props: {
                 class="cb"
                 checked={done}
                 indeterminate={false}
-                label={`${line.path} を確認済みにする`}
+                label={t.markViewed(line.path)}
                 onChange={() => ctx.onToggle(node)}
             />
             <span class="sign">{line.op}</span>
@@ -369,7 +383,7 @@ function LineRow(props: {
                     <span class="tag tag-sensitive">sensitive</span>
                 )}
                 {ctx.updated.has(line.key) && !done && (
-                    <span class="tag tag-updated">更新あり</span>
+                    <span class="tag tag-updated">{t.updated}</span>
                 )}
             </Code>
         </div>
@@ -388,8 +402,8 @@ function isAssignment(it: ReorderItem): boolean {
 
 function reorderOptionText(o: ReorderOption): string {
     return o.field === undefined
-        ? "順序を無視して比較"
-        : `${o.field} が同じ要素どうしで比較`;
+        ? t.compareIgnoringOrder
+        : t.compareByField(o.field);
 }
 
 function Items(props: {
@@ -450,11 +464,11 @@ function Items(props: {
                                     {`# ${it.label}: `}
                                     <select
                                         class="reorder-select"
-                                        aria-label={`${it.label} の比較方法`}
+                                        aria-label={t.compareLabel(it.label)}
                                         title={
                                             isValueList(it)
-                                                ? "要素を位置ではなく、値そのもので比較する(並び順の違いは無視)"
-                                                : "要素を位置ではなく、フィールドの値が同じものどうしで比較する"
+                                                ? t.compareByValueHint
+                                                : t.compareByFieldHint
                                         }
                                         value={chosen}
                                         onChange={(e) =>
@@ -466,7 +480,9 @@ function Items(props: {
                                             )
                                         }
                                     >
-                                        <option value="">位置で比較</option>
+                                        <option value="">
+                                            {t.compareByPosition}
+                                        </option>
                                         {it.options.map((o) => (
                                             <option value={o.id}>
                                                 {reorderOptionText(o)}
@@ -567,13 +583,13 @@ function NodeHead(props: {
     const status =
         lineCount === 0
             ? all
-                ? "確認済み · 属性の変更なし"
-                : "属性の変更なし"
+                ? `${t.viewed} · ${t.noAttributeChanges}`
+                : t.noAttributeChanges
             : all
-              ? `確認済み · ${plural(lineCount, "line")}`
+              ? `${t.viewed} · ${t.lines(lineCount)}`
               : done > 0
-                ? `${done} / ${plural(lineCount, "line")}`
-                : plural(lineCount, "line");
+                ? `${done} / ${t.lines(lineCount)}`
+                : t.lines(lineCount);
     let carriedN = 0;
     let updatedN = 0;
     for (const k of node.units) {
@@ -601,7 +617,7 @@ function NodeHead(props: {
             <button
                 type="button"
                 class={classNames("caret", !props.foldable && "hidden")}
-                aria-label="開閉"
+                aria-label={t.toggleFold}
                 tabindex={props.foldable ? 0 : -1}
             >
                 ›
@@ -609,16 +625,16 @@ function NodeHead(props: {
             <Checkbox
                 checked={all}
                 indeterminate={done > 0 && !all}
-                label={`${props.label} を確認済みにする`}
+                label={t.markViewed(props.label)}
                 onChange={() => ctx.onToggle(node)}
             />
             {props.children}
             <span class="spacer" />
             {updatedN > 0 && (
-                <span class="tag tag-updated">更新あり {updatedN}</span>
+                <span class="tag tag-updated">{t.updatedCount(updatedN)}</span>
             )}
             {carriedN > 0 && (
-                <span class="tag tag-carried">前回確認済み {carriedN} 行</span>
+                <span class="tag tag-carried">{t.carriedCount(carriedN)}</span>
             )}
             <span class="status">{status}</span>
         </div>
@@ -665,7 +681,7 @@ function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
                     </span>
                 )}
                 <span class="name">{res.address}</span>
-                <CopyButton text={res.target} label="リソース名をコピー" />
+                <CopyButton text={res.target} label={t.copyResourceName} />
                 <span class="action">{actionText(res)}</span>
             </NodeHead>
             {hasBody && (
@@ -841,16 +857,14 @@ function App({
     };
 
     const onReset = () => {
-        if (!confirm("確認済み状態をすべて消しますか?")) return;
+        if (!confirm(t.confirmReset)) return;
         commit(reset(current()));
         setCarried(new Set());
-        setFlash("確認済み状態をリセットしました");
+        setFlash(t.flashReset);
     };
     const onExport = () => {
         downloadJson(`tfview-state-${data.projectId}.json`, toSaved(current()));
-        setFlash(
-            `${current().confirmed.size} 件の確認済み状態を書き出しました`,
-        );
+        setFlash(t.flashExported(current().confirmed.size));
     };
     const onImportFile = async () => {
         const input = fileInput.current;
@@ -864,28 +878,22 @@ function App({
             // handled below
         }
         if (!saved) {
-            setFlash(`${file.name}: tfview の状態ファイルとして読めません`);
+            setFlash(t.flashImportFailed(file.name));
             return;
         }
         const result = importSaved(model, current(), saved);
         commit(result.state);
-        setFlash(
-            `${file.name} から ${result.added} 行を確認済みにしました(この plan に無いキーは無視)`,
-        );
+        setFlash(t.flashImported(file.name, result.added));
     };
 
     const { lines, resources, modules } = progress(model, state);
     const meta = [
         data.source,
         data.terraformVersion && `Terraform ${data.terraformVersion}`,
-        `${data.modules.reduce((n, m) => n + m.resources.length, 0)} resources`,
-        `生成 ${new Date(data.generatedAt).toLocaleString()}`,
+        t.resources(data.modules.reduce((n, m) => n + m.resources.length, 0)),
+        t.generatedAt(new Date(data.generatedAt).toLocaleString(locale)),
     ].filter(Boolean);
-    const notice =
-        flash ??
-        (storageOk
-            ? ""
-            : "状態を保存できません(このブラウザでは localStorage を使えません)。閉じる前にエクスポートしてください。");
+    const notice = flash ?? (storageOk ? "" : t.storageUnavailable);
 
     return (
         <>
@@ -896,11 +904,14 @@ function App({
                     <span class="spacer" />
                     <div class="progress">
                         <span id="progress-text">
-                            {lines.done} / {lines.total} line 確認済み
+                            {t.linesViewed(lines.done, lines.total)}
                         </span>
                         <span class="progress-sub">
-                            resource {resources.done} / {resources.total} ·
-                            module {modules.done} / {modules.total}
+                            {t.resourceProgress(
+                                resources.done,
+                                resources.total,
+                            )}{" "}
+                            · {t.moduleProgress(modules.done, modules.total)}
                         </span>
                         <div class="progress-bar">
                             <div
@@ -912,24 +923,24 @@ function App({
                     <div class="actions">
                         <button
                             type="button"
-                            title="確認済み状態を JSON ファイルに書き出す"
+                            title={t.exportHint}
                             onClick={onExport}
                         >
-                            エクスポート
+                            {t.export}
                         </button>
                         <button
                             type="button"
-                            title="JSON ファイルから確認済み状態を読み込む"
+                            title={t.importHint}
                             onClick={() => fileInput.current?.click()}
                         >
-                            インポート
+                            {t.import}
                         </button>
                         <button
                             type="button"
-                            title="確認済み状態をすべて消す"
+                            title={t.resetHint}
                             onClick={onReset}
                         >
-                            リセット
+                            {t.reset}
                         </button>
                         <input
                             ref={fileInput}
@@ -938,25 +949,34 @@ function App({
                             hidden
                             onChange={onImportFile}
                         />
+                        <select
+                            class="lang-select"
+                            aria-label={t.language}
+                            title={t.language}
+                            value={locale}
+                            onChange={(e) => {
+                                const next = (e.target as HTMLSelectElement)
+                                    .value;
+                                if (isLocale(next)) switchLocale(next);
+                            }}
+                        >
+                            {(Object.keys(localeNames) as Locale[]).map((l) => (
+                                <option value={l}>{localeNames[l]}</option>
+                            ))}
+                        </select>
                     </div>
                 </div>
                 {data.showSensitive && (
-                    <div class="warn">
-                        この HTML には sensitive
-                        な値が平文で含まれています(--show-sensitive)。共有やコミットに注意してください。
-                    </div>
+                    <div class="warn">{t.sensitiveWarning}</div>
                 )}
                 {(carried.size > 0 || initial.updated.size > 0) && (
                     <div class="carry" id="carry">
                         {carried.size > 0 && (
-                            <span>
-                                前回確認済みで内容が同じ {carried.size}{" "}
-                                行を、確認済みとして畳んでいます
-                            </span>
+                            <span>{t.carriedNotice(carried.size)}</span>
                         )}
                         {initial.updated.size > 0 && (
                             <span class="tag tag-updated">
-                                前回から更新あり {initial.updated.size} 行
+                                {t.updatedNotice(initial.updated.size)}
                             </span>
                         )}
                     </div>
@@ -967,7 +987,7 @@ function App({
             </header>
             <main id="tree">
                 {data.modules.length === 0 ? (
-                    <div class="empty">変更はありません</div>
+                    <div class="empty">{t.noChanges}</div>
                 ) : (
                     data.modules.map((mod) => (
                         <ModuleView ctx={ctx} mod={mod} />

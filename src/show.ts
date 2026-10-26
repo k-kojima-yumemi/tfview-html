@@ -36,8 +36,8 @@ async function readHead(path: string, bytes = 64): Promise<Uint8Array> {
         const code = (err as NodeJS.ErrnoException).code;
         throw new UserError(
             code === "ENOENT"
-                ? `${path}: ファイルが見つかりません`
-                : `${path}: 読み込めません (${code})`,
+                ? `${path}: file not found`
+                : `${path}: cannot read file (${code})`,
         );
     }
     try {
@@ -63,8 +63,8 @@ export async function loadPlan(
     const kind = detectKind(await readHead(planfile));
     if (kind === undefined) {
         throw new UserError(
-            `${planfile}: plan ファイルとして認識できません`,
-            "`terraform plan -out=tfplan` のバイナリ plan か、`terraform show -json` の出力を渡してください",
+            `${planfile}: not recognized as a plan file`,
+            "Pass a binary plan from `terraform plan -out=tfplan`, or the output of `terraform show -json`",
         );
     }
     const text =
@@ -80,17 +80,17 @@ export function parsePlan(text: string, source: string): PlanJson {
         plan = JSON.parse(text.replace(/^﻿/, ""));
     } catch (err) {
         throw new UserError(
-            `${source}: JSON として読めません (${(err as Error).message})`,
+            `${source}: not valid JSON (${(err as Error).message})`,
         );
     }
     if (plan === null || typeof plan !== "object" || Array.isArray(plan)) {
-        throw new UserError(`${source}: plan JSON の形式ではありません`);
+        throw new UserError(`${source}: not in plan JSON format`);
     }
     if (
         "resource_changes" in plan &&
         !Array.isArray((plan as PlanJson).resource_changes)
     ) {
-        throw new UserError(`${source}: resource_changes が配列ではありません`);
+        throw new UserError(`${source}: resource_changes is not an array`);
     }
     return plan as PlanJson;
 }
@@ -112,11 +112,11 @@ function terraformShow(
             reject(
                 err.code === "ENOENT"
                     ? new UserError(
-                          `\`${bin}\` が見つかりません`,
-                          "Terraform をインストールするか、`--bin` でコマンドを指定してください (例: --bin tofu)",
+                          `\`${bin}\` not found`,
+                          "Install Terraform, or name the command with `--bin` (e.g. --bin tofu)",
                       )
                     : new UserError(
-                          `\`${bin} show -json\` を実行できません: ${err.message}`,
+                          `cannot run \`${bin} show -json\`: ${err.message}`,
                       ),
             );
         });
@@ -125,8 +125,8 @@ function terraformShow(
                 return resolve(Buffer.concat(chunks).toString("utf8"));
             reject(
                 new UserError(
-                    `\`${bin} show -json ${planfile}\` が失敗しました (${signal ?? `exit ${code}`})`,
-                    "plan を作成したのと同じ、`terraform init` 済みのディレクトリで実行してください",
+                    `\`${bin} show -json ${planfile}\` failed (${signal ?? `exit ${code}`})`,
+                    "Run it in the same directory where the plan was created, after `terraform init`",
                 ),
             );
         });
