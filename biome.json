@@ -67,7 +67,7 @@
         "useShorthandFunctionType": "error"
       },
       "nursery": {
-        "useSortedClasses": "error"
+        "useTailwindSortedClasses": "error"
       },
       "complexity": {
         "noCommaOperator": "error",
