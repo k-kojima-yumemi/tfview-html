@@ -13,6 +13,9 @@ const usage = `Usage: tfview <planfile> [options]
 Options:
   -o, --out <path>  output path (default: ./tfview.html); - writes the HTML to stdout
       --bin <name>  Terraform command to run (default: terraform, e.g. tofu)
+      --project-id <name>
+                    name to save viewed state under (default: the current directory);
+                    use the same name wherever the HTML is generated or hosted
       --no-open     generate only; do not open the browser
       --show-sensitive
                     embed and show sensitive values in the HTML (default: off; handle the HTML with care)
@@ -53,6 +56,7 @@ function parseCli(argv: string[]) {
         options: {
             out: { type: "string", short: "o", default: "tfview.html" },
             bin: { type: "string", default: "terraform" },
+            "project-id": { type: "string" },
             "no-open": { type: "boolean", default: false },
             "show-sensitive": { type: "boolean", default: false },
             help: { type: "boolean", short: "h", default: false },
@@ -87,6 +91,12 @@ async function main(argv: string[]): Promise<number> {
         return 2;
     }
 
+    const projectName = values["project-id"];
+    if (projectName?.trim() === "") {
+        console.error(`tfview: --project-id must not be empty\n\n${usage}`);
+        return 2;
+    }
+
     try {
         const { path } = await generate({
             planfile,
@@ -94,6 +104,7 @@ async function main(argv: string[]): Promise<number> {
             bin: values.bin,
             cwd: process.cwd(),
             showSensitive: values["show-sensitive"],
+            projectName,
         });
         // With `-o -` stdout carries the HTML, so the path is not printed and no browser is opened.
         if (path !== undefined) console.log(path);

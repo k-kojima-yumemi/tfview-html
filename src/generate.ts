@@ -1,6 +1,6 @@
 import { writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
-import { projectId } from "./hash.ts";
+import { namedProjectId, projectId } from "./hash.ts";
 import { renderHtml } from "./render.ts";
 import { loadPlan, STDIN, UserError } from "./show.ts";
 import { buildTree, type PlanJson } from "./tree.ts";
@@ -16,6 +16,8 @@ export interface GenerateOptions {
     bin: string;
     cwd: string;
     showSensitive?: boolean;
+    /** `--project-id`: names the saved state instead of the current directory. */
+    projectName?: string | undefined;
     /** Written to when `out` is `-`. Default: `process.stdout`. */
     stdout?: NodeJS.WritableStream;
 }
@@ -24,13 +26,17 @@ export interface ViewDataOptions {
     cwd: string;
     source: string;
     showSensitive?: boolean;
+    projectName?: string | undefined;
     now?: Date;
 }
 
 export function buildViewData(plan: PlanJson, opts: ViewDataOptions): ViewData {
     const data: ViewData = {
         version: 1,
-        projectId: projectId(resolve(opts.cwd)),
+        projectId:
+            opts.projectName === undefined
+                ? projectId(resolve(opts.cwd))
+                : namedProjectId(opts.projectName),
         generatedAt: (opts.now ?? new Date()).toISOString(),
         source: opts.source,
         modules: buildTree(plan, {
@@ -72,6 +78,7 @@ export async function generate(
         cwd: opts.cwd,
         source: opts.planfile === STDIN ? "stdin" : basename(opts.planfile),
         showSensitive: opts.showSensitive ?? false,
+        projectName: opts.projectName,
     });
     const html = await renderHtml(data);
     if (opts.out === STDOUT) {

@@ -62,6 +62,7 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 | `<planfile>` | A binary plan, or the output of `terraform show -json`. Detected from the first bytes (`PK` is a binary plan, `{` is JSON). `-` reads JSON from stdin (binary plans are not accepted there) |
 | `-o, --out <path>` | Output path. Default: `./tfview.html`. `-` writes the HTML to stdout (the path is not printed and the browser is not opened) |
 | `--bin <name>` | Terraform command to run. Default: `terraform` (e.g. `--bin tofu`) |
+| `--project-id <name>` | Name to save viewed state under, instead of the current directory (see [Saving viewed state](#saving-viewed-state)) |
 | `--no-open` | Generate only; do not open the browser |
 | `--show-sensitive` | Embed and show sensitive values in the HTML (off by default; see below) |
 
@@ -100,6 +101,8 @@ With `--show-sensitive`, the actual values are embedded and shown. Such lines ge
 ## Saving viewed state
 
 - Saved in the browser's `localStorage` under the key `tfview:<projectId>`. `projectId` is a hash of the absolute path of the current directory at generation time.
+- With `--project-id <name>`, `projectId` is a hash of that name instead. Use it when the directory changes between runs, such as in CI, so the viewed state carries over. Give each environment its own name (e.g. `app-prod`, `app-stg`).
+- localStorage is per origin: a page hosted on S3 and a local `file://` page do not share state, even with the same `--project-id`. Use export / import to move state between them.
 - Only hashes are stored. Attribute values and resource names are not.
 - When a regenerated HTML is opened, keys that no longer exist in the current plan are removed from the saved data.
 - Where localStorage is unavailable, it works with in-memory state only and the page shows a message that state cannot be saved.

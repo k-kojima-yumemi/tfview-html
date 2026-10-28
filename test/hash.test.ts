@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "vitest";
-import { canonical, lineKey, projectId, unknownValue } from "../src/hash.ts";
+import {
+    canonical,
+    lineKey,
+    namedProjectId,
+    projectId,
+    unknownValue,
+} from "../src/hash.ts";
 import { buildTree, type PlanJson } from "../src/tree.ts";
 import type { ViewModule } from "../src/types.ts";
 import { loadFixture, reverseKeys, setAfter } from "./helpers.ts";
@@ -115,5 +121,11 @@ describe("keys", () => {
     it("projectId depends on the directory", () => {
         assert.equal(projectId("/a/b"), projectId("/a/b"));
         assert.notEqual(projectId("/a/b"), projectId("/a/c"));
+    });
+
+    it("namedProjectId depends only on the name, and differs from a path-based one", () => {
+        assert.equal(namedProjectId("app-prod"), namedProjectId("app-prod"));
+        assert.notEqual(namedProjectId("app-prod"), namedProjectId("app-stg"));
+        assert.notEqual(namedProjectId("/a/b"), projectId("/a/b"));
     });
 });

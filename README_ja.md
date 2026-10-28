@@ -62,6 +62,7 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 | `<planfile>` | バイナリ plan、または `terraform show -json` の出力。先頭バイトで判別します(`PK` ならバイナリ、`{` なら JSON)。`-` なら標準入力から JSON を読みます(バイナリ plan は不可) |
 | `-o, --out <path>` | 出力先。既定は `./tfview.html`。`-` なら HTML を標準出力に書き出します(パスの表示とブラウザを開く動作はしません) |
 | `--bin <name>` | 実行する Terraform のコマンド。既定は `terraform`(例: `--bin tofu`) |
+| `--project-id <name>` | 確認状態を保存する名前。カレントディレクトリの代わりに使います(「[確認済み状態の保存](#確認済み状態の保存)」を参照) |
 | `--no-open` | 生成のみで、ブラウザを開かない |
 | `--show-sensitive` | sensitive な値も HTML に埋め込んで表示する(既定は OFF。後述) |
 
@@ -100,6 +101,8 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 ## 確認済み状態の保存
 
 - ブラウザの `localStorage` に、キー名 `tfview:<projectId>` で保存します。`projectId` は、生成時のカレントディレクトリの絶対パスから計算したハッシュです。
+- `--project-id <name>` を付けると、`projectId` はその名前から計算したハッシュになります。CI のように実行のたびにディレクトリが変わる場合に使うと、確認状態が引き継がれます。環境ごとに別の名前を付けてください(例: `app-prod`、`app-stg`)。
+- localStorage はオリジンごとに分かれます。S3 に置いたページとローカルの `file://` のページでは、`--project-id` が同じでも状態は共有されません。間で移すときはエクスポート / インポートを使ってください。
 - 保存するのはハッシュだけです。属性の値やリソース名は保存しません。
 - 再生成した HTML を開くと、現在の plan に存在しないキーを保存データから削除します。
 - localStorage を使えない環境では、メモリ上の状態だけで動き、画面に「状態を保存できません」と表示します。

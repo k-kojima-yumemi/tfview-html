@@ -61,3 +61,8 @@ export function slotKey(address: string, attrPath?: string): string {
 export function projectId(cwd: string): string {
     return sha256("project", cwd);
 }
+
+/** For `--project-id`: keyed by a name the user picks, so it does not depend on where the HTML is generated. */
+export function namedProjectId(name: string): string {
+    return sha256("project-name", name);
+}

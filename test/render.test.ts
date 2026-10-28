@@ -151,6 +151,17 @@ describe("renderHtml with hostile input", () => {
     });
 });
 
+describe("buildViewData", () => {
+    it("uses --project-id instead of the directory for projectId", () => {
+        const build = (cwd: string, projectName?: string) =>
+            buildViewData(loadFixture(), { cwd, source: "tfplan", projectName })
+                .projectId;
+        assert.notEqual(build("/runner/a"), build("/runner/b"));
+        assert.equal(build("/runner/a", "app"), build("/runner/b", "app"));
+        assert.notEqual(build("/runner/a", "app"), build("/runner/a"));
+    });
+});
+
 describe("generate", () => {
     it("reads a JSON plan and writes the HTML", async () => {
         const dir = await mkdtemp(join(tmpdir(), "tfview-"));
