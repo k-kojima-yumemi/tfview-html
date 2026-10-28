@@ -49,12 +49,18 @@ tfview plan.json
 terraform show -json tfplan | tfview -
 ```
 
+`-o -` を付けると HTML を標準出力に書き出すので、S3 へのアップロードなど別のコマンドにそのまま渡せます。
+
+```sh
+terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.html --content-type text/html
+```
+
 ### オプション
 
 | オプション | 説明 |
 |---|---|
 | `<planfile>` | バイナリ plan、または `terraform show -json` の出力。先頭バイトで判別します(`PK` ならバイナリ、`{` なら JSON)。`-` なら標準入力から JSON を読みます(バイナリ plan は不可) |
-| `-o, --out <path>` | 出力先。既定は `./tfview.html` |
+| `-o, --out <path>` | 出力先。既定は `./tfview.html`。`-` なら HTML を標準出力に書き出します(パスの表示とブラウザを開く動作はしません) |
 | `--bin <name>` | 実行する Terraform のコマンド。既定は `terraform`(例: `--bin tofu`) |
 | `--no-open` | 生成のみで、ブラウザを開かない |
 | `--show-sensitive` | sensitive な値も HTML に埋め込んで表示する(既定は OFF。後述) |

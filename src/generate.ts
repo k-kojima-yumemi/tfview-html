@@ -2,16 +2,22 @@ import { writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { projectId } from "./hash.ts";
 import { renderHtml } from "./render.ts";
-import { loadPlan, STDIN } from "./show.ts";
+import { loadPlan, STDIN, UserError } from "./show.ts";
 import { buildTree, type PlanJson } from "./tree.ts";
 import type { ViewData } from "./types.ts";
 
+/** The `--out` value that means "write the HTML to stdout". */
+export const STDOUT = "-";
+
 export interface GenerateOptions {
     planfile: string;
+    /** Output path, or `-` for stdout. */
     out: string;
     bin: string;
     cwd: string;
     showSensitive?: boolean;
+    /** Written to when `out` is `-`. Default: `process.stdout`. */
+    stdout?: NodeJS.WritableStream;
 }
 
 export interface ViewDataOptions {
@@ -36,10 +42,28 @@ export function buildViewData(plan: PlanJson, opts: ViewDataOptions): ViewData {
     return data;
 }
 
-/** Reads the plan, writes the HTML and returns its absolute path. */
+function writeAll(stream: NodeJS.WritableStream, text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+        // Listening for "error" keeps a closed pipe (EPIPE) from crashing the process.
+        const onError = (err: NodeJS.ErrnoException) =>
+            reject(
+                new UserError(
+                    `stdout: cannot write the HTML (${err.code ?? err.message})`,
+                ),
+            );
+        stream.once("error", onError);
+        stream.write(text, (err) => {
+            stream.off("error", onError);
+            if (err) onError(err);
+            else resolve();
+        });
+    });
+}
+
+/** Reads the plan and writes the HTML. `path` is its absolute path, or undefined when written to stdout. */
 export async function generate(
     opts: GenerateOptions,
-): Promise<{ path: string; data: ViewData }> {
+): Promise<{ path: string | undefined; data: ViewData }> {
     const plan = await loadPlan(opts.planfile, {
         bin: opts.bin,
         cwd: opts.cwd,
@@ -49,7 +73,12 @@ export async function generate(
         source: opts.planfile === STDIN ? "stdin" : basename(opts.planfile),
         showSensitive: opts.showSensitive ?? false,
     });
+    const html = await renderHtml(data);
+    if (opts.out === STDOUT) {
+        await writeAll(opts.stdout ?? process.stdout, html);
+        return { path: undefined, data };
+    }
     const path = resolve(opts.cwd, opts.out);
-    await writeFile(path, await renderHtml(data), "utf8");
+    await writeFile(path, html, "utf8");
     return { path, data };
 }

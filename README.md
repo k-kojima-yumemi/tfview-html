@@ -49,12 +49,18 @@ Pass `-` to read the JSON from stdin.
 terraform show -json tfplan | tfview -
 ```
 
+With `-o -` the HTML goes to stdout, so you can pass it straight to another command, such as uploading it to S3.
+
+```sh
+terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.html --content-type text/html
+```
+
 ### Options
 
 | Option | Description |
 |---|---|
 | `<planfile>` | A binary plan, or the output of `terraform show -json`. Detected from the first bytes (`PK` is a binary plan, `{` is JSON). `-` reads JSON from stdin (binary plans are not accepted there) |
-| `-o, --out <path>` | Output path. Default: `./tfview.html` |
+| `-o, --out <path>` | Output path. Default: `./tfview.html`. `-` writes the HTML to stdout (the path is not printed and the browser is not opened) |
 | `--bin <name>` | Terraform command to run. Default: `terraform` (e.g. `--bin tofu`) |
 | `--no-open` | Generate only; do not open the browser |
 | `--show-sensitive` | Embed and show sensitive values in the HTML (off by default; see below) |

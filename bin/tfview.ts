@@ -11,7 +11,7 @@ const usage = `Usage: tfview <planfile> [options]
                     - reads the JSON from stdin (terraform show -json tfplan | tfview -)
 
 Options:
-  -o, --out <path>  output path (default: ./tfview.html)
+  -o, --out <path>  output path (default: ./tfview.html); - writes the HTML to stdout
       --bin <name>  Terraform command to run (default: terraform, e.g. tofu)
       --no-open     generate only; do not open the browser
       --show-sensitive
@@ -95,13 +95,14 @@ async function main(argv: string[]): Promise<number> {
             cwd: process.cwd(),
             showSensitive: values["show-sensitive"],
         });
-        console.log(path);
+        // With `-o -` stdout carries the HTML, so the path is not printed and no browser is opened.
+        if (path !== undefined) console.log(path);
         if (values["show-sensitive"]) {
             console.error(
                 "warning: --show-sensitive: this HTML contains sensitive values in plain text; be careful when sharing or committing it",
             );
         }
-        if (!values["no-open"]) openInBrowser(path);
+        if (path !== undefined && !values["no-open"]) openInBrowser(path);
         return 0;
     } catch (err) {
         if (err instanceof UserError) {

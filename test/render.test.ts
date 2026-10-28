@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { Window } from "happy-dom";
 import { describe, it } from "vitest";
@@ -161,9 +162,32 @@ describe("generate", () => {
                 cwd: dir,
             });
             assert.equal(path, join(dir, "out.html"));
+            assert.ok(path);
             assert.deepEqual(dataOf(parse(await readFile(path, "utf8"))), data);
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
+    });
+
+    it("writes the HTML to stdout with `-o -`", async () => {
+        const chunks: Buffer[] = [];
+        const stdout = new Writable({
+            write(chunk: Buffer, _encoding, callback) {
+                chunks.push(chunk);
+                callback();
+            },
+        });
+        const { path, data } = await generate({
+            planfile: fileURLToPath(fixturePlan),
+            out: "-",
+            bin: "terraform",
+            cwd: "/",
+            stdout,
+        });
+        assert.equal(path, undefined);
+        assert.deepEqual(
+            dataOf(parse(Buffer.concat(chunks).toString("utf8"))),
+            data,
+        );
     });
 });
