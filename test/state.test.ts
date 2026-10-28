@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "vitest";
 import {
     buildModel,
-    importSaved,
     isDone,
     lineNodeId,
     nodeOf,
@@ -153,20 +152,7 @@ describe("restore (carry-over between plans)", () => {
     });
 });
 
-describe("import and parse", () => {
-    it("merges imported keys and ignores unknown ones", () => {
-        const { model, state } = setup();
-        const keys = node(model, webId).units;
-        const { state: next, added } = importSaved(model, state, {
-            version: 1,
-            confirmed: [...keys, "unknown"],
-            slots: [],
-        });
-        assert.equal(added, keys.length);
-        assert.ok(isDone(next, node(model, webId)));
-        assert.ok(next.collapsed.has(webId));
-    });
-
+describe("parseSaved", () => {
     it("accepts the saved format and a bare array of keys", () => {
         assert.deepEqual(parseSaved(["a"]), {
             version: 1,

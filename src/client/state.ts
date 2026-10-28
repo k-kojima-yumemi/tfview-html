@@ -327,30 +327,6 @@ export function collapseDone(model: Model, state: ReviewState): ReviewState {
     return { ...state, collapsed };
 }
 
-/** Merges imported confirmations into the current ones. Keys not in this plan are ignored. */
-export function importSaved(
-    model: Model,
-    state: ReviewState,
-    saved: SavedState,
-): { state: ReviewState; added: number } {
-    const currentSlots = new Set(model.unitSlot.values());
-    const confirmed = new Set(state.confirmed);
-    const slots = new Set(state.slots);
-    let added = 0;
-    for (const k of saved.confirmed) {
-        if (model.unitSlot.has(k) && !confirmed.has(k)) {
-            confirmed.add(k);
-            slots.add(slotOf(model, k));
-            added++;
-        }
-    }
-    for (const s of saved.slots) if (currentSlots.has(s)) slots.add(s);
-    return {
-        state: collapseDone(model, { ...state, confirmed, slots }),
-        added,
-    };
-}
-
 export function reset(state: ReviewState): ReviewState {
     return {
         ...state,

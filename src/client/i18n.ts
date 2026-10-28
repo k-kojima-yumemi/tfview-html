@@ -29,21 +29,13 @@ const en = {
         `resource ${done} / ${total}`,
     moduleProgress: (done: number, total: number) =>
         `module ${done} / ${total}`,
-    export: "Export",
-    exportHint: "Save the viewed state to a JSON file",
-    import: "Import",
-    importHint: "Load the viewed state from a JSON file",
     reset: "Reset",
     resetHint: "Clear all viewed state",
     language: "Language",
     confirmReset: "Clear all viewed state?",
     flashReset: "Viewed state was reset",
-    flashExported: (n: number) => `Exported ${n} viewed entries`,
-    flashImportFailed: (file: string) => `${file}: not a tfview state file`,
-    flashImported: (file: string, n: number) =>
-        `Marked ${n} lines as viewed from ${file} (keys not in this plan are ignored)`,
     storageUnavailable:
-        "Cannot save state (localStorage is unavailable in this browser). Export before closing.",
+        "Cannot save state (localStorage is unavailable in this browser). Viewed state is lost when the page is closed.",
     resources: (n: number) => `${n} ${n === 1 ? "resource" : "resources"}`,
     generatedAt: (date: string) => `generated ${date}`,
     sensitiveWarning:
@@ -81,22 +73,13 @@ const ja: Messages = {
     linesViewed: (done, total) => `${done} / ${total} 行 確認済み`,
     resourceProgress: (done, total) => `resource ${done} / ${total}`,
     moduleProgress: (done, total) => `module ${done} / ${total}`,
-    export: "エクスポート",
-    exportHint: "確認済み状態を JSON ファイルに書き出す",
-    import: "インポート",
-    importHint: "JSON ファイルから確認済み状態を読み込む",
     reset: "リセット",
     resetHint: "確認済み状態をすべて消す",
     language: "言語",
     confirmReset: "確認済み状態をすべて消しますか?",
     flashReset: "確認済み状態をリセットしました",
-    flashExported: (n) => `${n} 件の確認済み状態を書き出しました`,
-    flashImportFailed: (file) =>
-        `${file}: tfview の状態ファイルとして読めません`,
-    flashImported: (file, n) =>
-        `${file} から ${n} 行を確認済みにしました(この plan に無いキーは無視)`,
     storageUnavailable:
-        "状態を保存できません(このブラウザでは localStorage を使えません)。閉じる前にエクスポートしてください。",
+        "状態を保存できません(このブラウザでは localStorage を使えません)。ページを閉じると確認済み状態は失われます。",
     resources: (n) => `${n} resources`,
     generatedAt: (date) => `生成 ${date}`,
     sensitiveWarning:

@@ -102,19 +102,10 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 
 - ブラウザの `localStorage` に、キー名 `tfview:<projectId>` で保存します。`projectId` は、生成時のカレントディレクトリの絶対パスから計算したハッシュです。
 - `--project-id <name>` を付けると、`projectId` はその名前から計算したハッシュになります。CI のように実行のたびにディレクトリが変わる場合に使うと、確認状態が引き継がれます。環境ごとに別の名前を付けてください(例: `app-prod`、`app-stg`)。
-- localStorage はオリジンごとに分かれます。S3 に置いたページとローカルの `file://` のページでは、`--project-id` が同じでも状態は共有されません。間で移すときはエクスポート / インポートを使ってください。
+- localStorage はオリジンごとに分かれます。S3 に置いたページとローカルの `file://` のページでは、`--project-id` が同じでも状態は共有されません。
 - 保存するのはハッシュだけです。属性の値やリソース名は保存しません。
 - 再生成した HTML を開くと、現在の plan に存在しないキーを保存データから削除します。
 - localStorage を使えない環境では、メモリ上の状態だけで動き、画面に「状態を保存できません」と表示します。
-
-### エクスポート / インポート
-
-画面上部のボタンで、確認済み状態を JSON ファイルに書き出したり、読み込んだりできます。
-
-- localStorage が消えたときの復旧や、ブラウザを変えるときに使います。
-- チームで共有するときにも使えます。中身はハッシュだけなので、値は漏れません。
-- 読み込みは**追加(マージ)**です。現在の plan に無いキーは無視します。
-- ハッシュはアドレスと値から計算するので、別のディレクトリや別の人が生成した同じ plan にも適用できます。
 
 ### `file://` での localStorage の挙動
 
@@ -125,7 +116,7 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 | Safari | 未検証 | 未検証 | 手動で確認してください |
 
 - Chrome では、すべての `file://` ページが同じ localStorage を共有していました。別ディレクトリの状態は `projectId` の違うキーに入るので、混ざりません。
-- ファイルごとに保存領域を分けるブラウザでも、出力先が固定パス(`./tfview.html`)なら同じ領域になる前提です。この前提が成り立たないブラウザでは、エクスポート / インポートで運用してください。
+- ファイルごとに保存領域を分けるブラウザでも、出力先が固定パス(`./tfview.html`)なら同じ領域になる前提です。この前提が成り立たないブラウザでは、実行をまたいで確認済み状態は引き継がれません。
 
 手動確認の手順:
 
@@ -179,7 +170,7 @@ src/generate.ts      上記をつなぐ
 src/styles.css       CSS
 src/client/app.tsx   UI(hono/jsx/dom)
 src/client/i18n.ts   言語ごとの UI 文言、言語の判定
-src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ、インポート)。DOM に依存しない純粋な関数
+src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ)。DOM に依存しない純粋な関数
 src/client/storage.ts localStorage の読み書き
 build/plugins.ts     Rolldown / Vitest 共用のプラグイン
 test/                Vitest の単体テスト

@@ -102,19 +102,10 @@ With `--show-sensitive`, the actual values are embedded and shown. Such lines ge
 
 - Saved in the browser's `localStorage` under the key `tfview:<projectId>`. `projectId` is a hash of the absolute path of the current directory at generation time.
 - With `--project-id <name>`, `projectId` is a hash of that name instead. Use it when the directory changes between runs, such as in CI, so the viewed state carries over. Give each environment its own name (e.g. `app-prod`, `app-stg`).
-- localStorage is per origin: a page hosted on S3 and a local `file://` page do not share state, even with the same `--project-id`. Use export / import to move state between them.
+- localStorage is per origin: a page hosted on S3 and a local `file://` page do not share state, even with the same `--project-id`.
 - Only hashes are stored. Attribute values and resource names are not.
 - When a regenerated HTML is opened, keys that no longer exist in the current plan are removed from the saved data.
 - Where localStorage is unavailable, it works with in-memory state only and the page shows a message that state cannot be saved.
-
-### Export / import
-
-The buttons at the top of the page write the viewed state to a JSON file and read it back.
-
-- Use it to recover when localStorage is lost, or when switching browsers.
-- It also works for sharing within a team. The contents are only hashes, so no values leak.
-- Import **adds** (merges). Keys not in the current plan are ignored.
-- Hashes are computed from address and value, so a file also applies to the same plan generated in another directory or by another person.
 
 ### localStorage behavior on `file://`
 
@@ -125,7 +116,7 @@ The buttons at the top of the page write the viewed state to a JSON file and rea
 | Safari | Not verified | Not verified | Check manually |
 
 - In Chrome, all `file://` pages shared the same localStorage. State from another directory goes under a key with a different `projectId`, so it does not mix.
-- For browsers that give each file its own storage, this relies on the output path being fixed (`./tfview.html`) so the storage stays the same. In a browser where that does not hold, use export / import.
+- For browsers that give each file its own storage, this relies on the output path being fixed (`./tfview.html`) so the storage stays the same. In a browser where that does not hold, viewed state does not carry over between runs.
 
 Manual check:
 
@@ -179,7 +170,7 @@ src/generate.ts      ties the above together
 src/styles.css       CSS
 src/client/app.tsx   UI (hono/jsx/dom)
 src/client/i18n.ts   UI text per language and locale detection
-src/client/state.ts  viewed-state operations (check, fold, carry-over, import). Pure functions with no DOM dependency
+src/client/state.ts  viewed-state operations (check, fold, carry-over). Pure functions with no DOM dependency
 src/client/storage.ts reading and writing localStorage
 build/plugins.ts     plugins shared by Rolldown / Vitest
 test/                Vitest unit tests

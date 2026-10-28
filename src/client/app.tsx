@@ -13,7 +13,6 @@ import type {
     Hidden,
     LineOp,
     ReorderOption,
-    SavedState,
     ViewData,
     ViewLine,
     ViewModule,
@@ -29,7 +28,6 @@ import {
 import {
     buildModel,
     confirmedCount,
-    importSaved,
     isDone,
     lineNodeId,
     type Model,
@@ -764,20 +762,6 @@ function ModuleView({ ctx, mod }: { ctx: Ctx; mod: ViewModule }) {
 // ---------------------------------------------------------------------------
 // App
 
-function downloadJson(name: string, value: unknown): void {
-    const blob = new Blob([`${JSON.stringify(value, null, 2)}\n`], {
-        type: "application/json",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = name;
-    document.body.append(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
-
 function App({
     data,
     initial,
@@ -796,7 +780,6 @@ function App({
     const [carried, setCarried] = useState(initial.carried);
     const [storageOk, setStorageOk] = useState(storageAvailable());
     const [flash, setFlash] = useState<string | null>(null);
-    const fileInput = useRef<HTMLInputElement>(null);
     const bar = useRef<HTMLElement>(null);
 
     // Module and resource headers stick right below the top bar, whose height changes
@@ -862,29 +845,6 @@ function App({
         setCarried(new Set());
         setFlash(t.flashReset);
     };
-    const onExport = () => {
-        downloadJson(`tfview-state-${data.projectId}.json`, toSaved(current()));
-        setFlash(t.flashExported(current().confirmed.size));
-    };
-    const onImportFile = async () => {
-        const input = fileInput.current;
-        const file = input?.files?.[0];
-        if (!input || !file) return;
-        input.value = "";
-        let saved: SavedState | null = null;
-        try {
-            saved = parseSaved(JSON.parse(await file.text()));
-        } catch {
-            // handled below
-        }
-        if (!saved) {
-            setFlash(t.flashImportFailed(file.name));
-            return;
-        }
-        const result = importSaved(model, current(), saved);
-        commit(result.state);
-        setFlash(t.flashImported(file.name, result.added));
-    };
 
     const { lines, resources, modules } = progress(model, state);
     const meta = [
@@ -923,32 +883,11 @@ function App({
                     <div class="actions">
                         <button
                             type="button"
-                            title={t.exportHint}
-                            onClick={onExport}
-                        >
-                            {t.export}
-                        </button>
-                        <button
-                            type="button"
-                            title={t.importHint}
-                            onClick={() => fileInput.current?.click()}
-                        >
-                            {t.import}
-                        </button>
-                        <button
-                            type="button"
                             title={t.resetHint}
                             onClick={onReset}
                         >
                             {t.reset}
                         </button>
-                        <input
-                            ref={fileInput}
-                            type="file"
-                            accept=".json,application/json"
-                            hidden
-                            onChange={onImportFile}
-                        />
                         <select
                             class="lang-select"
                             aria-label={t.language}
