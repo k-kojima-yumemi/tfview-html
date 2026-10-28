@@ -66,20 +66,20 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 | `--no-open` | Generate only; do not open the browser |
 | `--show-sensitive` | Embed and show sensitive values in the HTML (off by default; see below) |
 
-For a binary plan, `terraform show -json <planfile>` runs in the **current directory of the command**. Run it in a directory where `terraform init` has been done.
+For a binary plan, `terraform show -json <planfile>` runs in the current directory of the command. Run it in a directory where `terraform init` has been done.
 
 ## The page
 
-- **Checkboxes**: at every level (module / resource / line), each level indented one step to the right. Internally the viewed state is kept per line; a module or resource checkbox toggles all the lines under it.
-- **Progress**: the top shows "N / M lines viewed". Resource and module progress appear next to it in smaller text.
-- **Sticky headings**: while scrolling, the headings of the current module and resource stick to the top, so you can check things without scrolling back up.
-- **Checking**: checking a parent marks every line under it as viewed and folds it. Checking all children marks the parent automatically. A parent with only some children viewed shows the indeterminate state.
-- **Folding**: click the caret (›) or the heading to expand / collapse. Expanding does not undo "viewed".
-- **Copy address**: the button right of a resource name copies its address (in a form `terraform apply -target=...` accepts). Pressing it does not fold the heading.
-- **Carry-over from last time**: lines that were viewed before with identical content are folded as viewed. The heading shows "N viewed before". Lines whose value changed after you viewed them get an "updated" mark.
-- **Compare ignoring order** (lists of objects): lists of objects (such as CodeBuild's `environment_variable`) are compared by position by default. When elements that merely changed order show up as diffs, pick a field such as `name` from the selector above the list; elements with the same value of that field are then compared with each other (elements are sorted by that value, and each block starts with the field used for matching). The selector is offered only for lists whose elements have been reordered and have a string field that is unique across all elements and neither sensitive nor unknown. The choice is per list, is not saved, and goes back to by-position when you reopen the page. By-position and by-field comparisons use different line keys, so viewed state is not carried between them.
-- **Compare ignoring order** (lists of values): for lists of strings or numbers such as `cidr_blocks` whose order changed, the selector above the list offers "Compare ignoring order". Added values become `+` lines, removed values `-` lines, and values on both sides are summarized as `# (N unchanged elements hidden)`. If only the order changed, no change lines remain. The selector is offered only for lists with no duplicate values and no sensitive or unknown values.
-- **Layout**: shown in a nested form close to `terraform plan`.
+- Checkboxes: at every level (module / resource / line), each level indented one step to the right. Internally the viewed state is kept per line; a module or resource checkbox toggles all the lines under it.
+- Progress: the top shows "N / M lines viewed". Resource and module progress appear next to it in smaller text.
+- Sticky headings: while scrolling, the headings of the current module and resource stick to the top, so you can check things without scrolling back up.
+- Checking: checking a parent marks every line under it as viewed and folds it. Checking all children marks the parent automatically. A parent with only some children viewed shows the indeterminate state.
+- Folding: click the caret (›) or the heading to expand / collapse. Expanding does not undo "viewed".
+- Copy address: the button right of a resource name copies its address (in a form `terraform apply -target=...` accepts). Pressing it does not fold the heading.
+- Carry-over from last time: lines that were viewed before with identical content are folded as viewed. The heading shows "N viewed before". Lines whose value changed after you viewed them get an "updated" mark.
+- Compare ignoring order (lists of objects): lists of objects (such as CodeBuild's `environment_variable`) are compared by position by default. When elements that merely changed order show up as diffs, pick a field such as `name` from the selector above the list; elements with the same value of that field are then compared with each other (elements are sorted by that value, and each block starts with the field used for matching). The selector is offered only for lists whose elements have been reordered and have a string field that is unique across all elements and neither sensitive nor unknown. The choice is per list, is not saved, and goes back to by-position when you reopen the page. By-position and by-field comparisons use different line keys, so viewed state is not carried between them.
+- Compare ignoring order (lists of values): for lists of strings or numbers such as `cidr_blocks` whose order changed, the selector above the list offers "Compare ignoring order". Added values become `+` lines, removed values `-` lines, and values on both sides are summarized as `# (N unchanged elements hidden)`. If only the order changed, no change lines remain. The selector is offered only for lists with no duplicate values and no sensitive or unknown values.
+- Layout: shown in a nested form close to `terraform plan`.
   - Groups are wrapped and indented, like `tags = { ... }`, `ingress { ... }` and `cidr_blocks = [ ... ]`.
   - Unchanged attributes are summarized as `# (N unchanged attributes hidden)`. `id` and `name` are shown as context even when unchanged.
   - Only changed lines can be checked. Brackets and comment lines are there for reading.
@@ -90,7 +90,7 @@ For a binary plan, `terraform show -json <planfile>` runs in the **current direc
 
 ## Sensitive values
 
-By default, sensitive values are **not embedded** in the HTML at all; only `(sensitive)` is shown.
+By default, sensitive values are not embedded in the HTML at all; only `(sensitive)` is shown.
 
 - Values marked in the plan JSON's `before_sensitive` / `after_sensitive` are hidden.
 - Only values Terraform marked are hidden. Unmarked values are shown as-is, like `terraform plan` does (for example, a `terraform_data` `output` repeats a sensitive `input` without the mark, so the `output` value is shown).
@@ -126,24 +126,22 @@ Manual check:
 
 ## How it works
 
-1. Exclude no-op and read from the plan JSON's `resource_changes`.
+1. Exclude no-op and read from the plan JSON's `resource_changes`. Imports and moves are kept even when they are no-op.
 2. Compare `change.before` / `change.after` recursively; each changed leaf becomes one line.
 3. Compute a hash key for each line.
    - `lineKey = sha256(address \0 attrPath \0 canonical(before) \0 canonical(after))`
    - `canonical()` is a stable JSON serialization with sorted object keys.
-   - A resource with no lines holds its viewed state through `resourceKey = sha256(address \0 actions)`.
+   - A resource with no lines holds its viewed state through `resourceKey = sha256(address \0 actions)`. For an import or a move, the import source or the previous address is added to it.
 4. The module → resource → line tree and the keys are embedded in the HTML. CSS and JS are inline; nothing depends on external resources.
 
 ### Known limitations
 
 - Values that change on every plan (timestamps, random IDs) go back to unviewed every time.
-- If the order or index of a list changes, the path changes and the line goes back to unviewed.
-- A resource whose address changed through `moved` or a refactor is treated as new.
+- If the order or index of a list changes, the path changes and the line goes back to unviewed. "Compare ignoring order" lines up reordered elements for reading, but that choice is not saved, and its line keys differ from by-position ones.
+- A resource whose address changed through `moved` is shown with a `moved` tag, but its line keys change with the address, so lines viewed before the move go back to unviewed.
 - Nested modules are shown as one level, `module.a.module.b`.
 
 ## Development
-
-The Node.js version is pinned to `24.22.1` with [Volta](https://volta.sh/).
 
 ```sh
 npm install        # install devDependencies
@@ -153,28 +151,3 @@ npm run ci         # Biome check and tsc type check (same as CI)
 npm test           # Vitest
 node dist/tfview.js test/fixtures/plan.json --no-open
 ```
-
-- `dist/tfview.js` is one file containing the CLI, the UI (TSX + `hono/jsx/dom`) and the CSS. It has no runtime dependencies, so handing over just this file is enough: `node tfview.js tfplan`.
-- The UI is `src/client/app.tsx` bundled into an IIFE by Rolldown, and inlined into the generated HTML.
-- The plugins in `build/plugins.ts` (an import with `?text` reads a file as a string; the UI is bundled into a string) are used by both the Rolldown build and Vitest.
-- UI text lives in `src/client/i18n.ts`. To add a language, add an object there with the same shape as `en`, and register it in `locales`, `localeNames` and `isLocale`. The CLI stays English only.
-
-```
-bin/tfview.ts        CLI entry (argument parsing, generation, opening the browser)
-src/show.ts          input detection, running terraform show -json
-src/tree.ts          plan JSON -> module/resource/line tree, expanding lines into display nesting, sensitive masking
-src/hash.ts          canonical JSON, key computation
-src/render.ts        generates the HTML
-src/document.tsx     the HTML document (server-side hono/jsx). JSX escapes values; only the JSON put into <script> is serialized with jsonForScript
-src/generate.ts      ties the above together
-src/styles.css       CSS
-src/client/app.tsx   UI (hono/jsx/dom)
-src/client/i18n.ts   UI text per language and locale detection
-src/client/state.ts  viewed-state operations (check, fold, carry-over). Pure functions with no DOM dependency
-src/client/storage.ts reading and writing localStorage
-build/plugins.ts     plugins shared by Rolldown / Vitest
-test/                Vitest unit tests
-test/fixtures/       plan.json for verification
-```
-
-`test/fixtures/plan.json` was generated from a Terraform project that uses only the built-in `terraform_data` resource. It covers create / update / delete / replace / sensitive / unknown / for_each / nested modules. The sensitive variable value (`hunter2-...`) is a dummy for testing.

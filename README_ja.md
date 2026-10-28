@@ -66,20 +66,20 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 | `--no-open` | 生成のみで、ブラウザを開かない |
 | `--show-sensitive` | sensitive な値も HTML に埋め込んで表示する(既定は OFF。後述) |
 
-バイナリ plan を渡すと、**コマンドを実行したカレントディレクトリ**で `terraform show -json <planfile>` を実行します。`terraform init` 済みのディレクトリで実行してください。
+バイナリ plan を渡すと、コマンドを実行したカレントディレクトリで `terraform show -json <planfile>` を実行します。`terraform init` 済みのディレクトリで実行してください。
 
 ## 画面
 
-- **チェックボックス**: module / resource / line のすべての階層にあり、階層ごとに一段ずつ右にずれています。内部の確認状態は line 単位で持っていて、module や resource のチェックは配下の line をまとめて切り替えます。
-- **進捗**: 上部に「N / M line 確認済み」と出ます。resource と module の単位の進捗も、その横に小さく出します。
-- **見出しの固定**: スクロールしても、いま見ている module と resource の見出しが上部に貼り付くので、上に戻らずにチェックできます。
-- **チェック**: 親をチェックすると配下の全行が確認済みになって畳まれます。子を全部チェックすると、親も自動で確認済みになります。一部だけ確認済みの親は中間状態になります。
-- **折りたたみ**: キャレット(›)か見出しをクリックすると開閉できます。開いても確認済みのままです。
-- **アドレスのコピー**: resource 名の右のボタンで、アドレス(`terraform apply -target=...` に渡せる形)をコピーできます。押しても見出しは開閉しません。
-- **前回からの引き継ぎ**: 前回確認済みで内容が同じ行は、確認済みとして畳まれます。見出しに「前回確認済み N 行」と出ます。前回確認したあとで値が変わった行には「更新あり」の印が付きます。
-- **順序を無視して比較**: オブジェクトのリスト(CodeBuild の `environment_variable` など)は、既定では位置どうしで比べます。順番が入れ替わっただけの要素まで差分に出るときは、リストの上にある選択肢から `name` のようなフィールドを選ぶと、そのフィールドの値が同じ要素どうしで比較します(要素はその値の順に並び、各ブロックの先頭に比較に使ったフィールドを表示します)。選べるのは、全要素で値が重複せず、sensitive や unknown でない文字列のフィールドで、要素が入れ替わっているリストだけです。切り替えはリストごとで、保存されず、開き直すと位置の比較に戻ります。位置の比較とフィールドでの比較では行のキーが別なので、確認済みの状態は引き継がれません。
-- **順序を無視して比較**(値のリスト): `cidr_blocks` のような文字列や数値のリストで、並び順が変わっているときは、リストの上の選択肢で「順序を無視して比較」を選べます。追加された値は `+`、削除された値は `-` の行になり、両側にある値は `# (N unchanged elements hidden)` にまとめます。並び順が変わっただけなら、変更の行はなくなります。選べるのは、値が重複せず、sensitive や unknown を含まないリストだけです。
-- **表示**: `terraform plan` に近い入れ子の形で表示します。
+- チェックボックス: module / resource / line のすべての階層にあり、階層ごとに一段ずつ右にずれています。内部の確認状態は line 単位で持っていて、module や resource のチェックは配下の line をまとめて切り替えます。
+- 進捗: 上部に「N / M line 確認済み」と出ます。resource と module の単位の進捗も、その横に小さく出します。
+- 見出しの固定: スクロールしても、いま見ている module と resource の見出しが上部に貼り付くので、上に戻らずにチェックできます。
+- チェック: 親をチェックすると配下の全行が確認済みになって畳まれます。子を全部チェックすると、親も自動で確認済みになります。一部だけ確認済みの親は中間状態になります。
+- 折りたたみ: キャレット(›)か見出しをクリックすると開閉できます。開いても確認済みのままです。
+- アドレスのコピー: resource 名の右のボタンで、アドレス(`terraform apply -target=...` に渡せる形)をコピーできます。押しても見出しは開閉しません。
+- 前回からの引き継ぎ: 前回確認済みで内容が同じ行は、確認済みとして畳まれます。見出しに「前回確認済み N 行」と出ます。前回確認したあとで値が変わった行には「更新あり」の印が付きます。
+- 順序を無視して比較: オブジェクトのリスト(CodeBuild の `environment_variable` など)は、既定では位置どうしで比べます。順番が入れ替わっただけの要素まで差分に出るときは、リストの上にある選択肢から `name` のようなフィールドを選ぶと、そのフィールドの値が同じ要素どうしで比較します(要素はその値の順に並び、各ブロックの先頭に比較に使ったフィールドを表示します)。選べるのは、全要素で値が重複せず、sensitive や unknown でない文字列のフィールドで、要素が入れ替わっているリストだけです。切り替えはリストごとで、保存されず、開き直すと位置の比較に戻ります。位置の比較とフィールドでの比較では行のキーが別なので、確認済みの状態は引き継がれません。
+- 順序を無視して比較(値のリスト): `cidr_blocks` のような文字列や数値のリストで、並び順が変わっているときは、リストの上の選択肢で「順序を無視して比較」を選べます。追加された値は `+`、削除された値は `-` の行になり、両側にある値は `# (N unchanged elements hidden)` にまとめます。並び順が変わっただけなら、変更の行はなくなります。選べるのは、値が重複せず、sensitive や unknown を含まないリストだけです。
+- 表示: `terraform plan` に近い入れ子の形で表示します。
   - `tags = { ... }`、`ingress { ... }`、`cidr_blocks = [ ... ]` のように、まとまりごとに括ってインデントします。
   - 変わっていない属性は `# (N unchanged attributes hidden)` にまとめます。`id` と `name` は、変わっていなくても文脈として表示します。
   - チェックできるのは変更のある行だけです。括弧やコメントの行は読むためのものです。
@@ -90,7 +90,7 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 
 ## sensitive な値
 
-既定では、sensitive な値は HTML に**一切埋め込まず**、`(sensitive)` とだけ表示します。
+既定では、sensitive な値は HTML に一切埋め込まず、`(sensitive)` とだけ表示します。
 
 - plan JSON の `before_sensitive` / `after_sensitive` で印が付いた値を隠します。
 - 隠すのは、Terraform が印を付けた値だけです。印の付いていない値は、`terraform plan` と同じく、そのまま表示します(例: `terraform_data` の `output` は、sensitive な `input` を印なしで繰り返すので、`output` 側の値は表示されます)。
@@ -126,24 +126,22 @@ terraform show -json tfplan | tfview - -o - | aws s3 cp - s3://my-bucket/plan.ht
 
 ## 仕組み
 
-1. plan JSON の `resource_changes` から、no-op と read を除外します。
+1. plan JSON の `resource_changes` から、no-op と read を除外します。import と move は、no-op でも残します。
 2. `change.before` / `change.after` を再帰的に比較し、変わったリーフを1行にします。
 3. 各行のハッシュキーを計算します。
    - `lineKey = sha256(address \0 attrPath \0 canonical(before) \0 canonical(after))`
    - `canonical()` は、オブジェクトのキーをソートした安定な JSON 文字列化です。
-   - 行を持たないリソースは、`resourceKey = sha256(address \0 actions)` で確認状態を持ちます。
+   - 行を持たないリソースは、`resourceKey = sha256(address \0 actions)` で確認状態を持ちます。import や move のときは、import 元や移動前のアドレスも加えます。
 4. module → resource → line のツリーとキーを HTML に埋め込みます。CSS と JS はインラインで、外部リソースには依存しません。
 
 ### 既知の限界
 
 - plan のたびに変わる値(タイムスタンプ、ランダム ID など)は、毎回未確認に戻ります。
-- リストの順序や index が変わると、パスが変わって未確認に戻ります。
-- `moved` やリファクタでアドレスが変わったリソースは、新規扱いになります。
+- リストの順序や index が変わると、パスが変わって未確認に戻ります。「順序を無視して比較」で入れ替わった要素を揃えて読めますが、その選択は保存されず、行のキーも位置での比較とは別になります。
+- `moved` でアドレスが変わったリソースは `moved` タグ付きで表示しますが、行のキーはアドレスとともに変わるので、移動前に確認した行は未確認に戻ります。
 - ネストした module は、`module.a.module.b` を1階層として表示します。
 
 ## 開発
-
-Node.js のバージョンは [Volta](https://volta.sh/) で `24.22.1` に固定しています。
 
 ```sh
 npm install        # devDependencies を入れる
@@ -153,28 +151,3 @@ npm run ci         # Biome のチェックと tsc の型チェック(CI と同�
 npm test           # Vitest
 node dist/tfview.js test/fixtures/plan.json --no-open
 ```
-
-- `dist/tfview.js` は、CLI、UI(TSX + `hono/jsx/dom`)、CSS をすべて含んだ1ファイルです。実行時の依存はないので、このファイルだけを渡せば `node tfview.js tfplan` で動きます。
-- UI は `src/client/app.tsx` を Rolldown で IIFE にまとめたものです。生成する HTML にインラインで埋め込みます。
-- UI の文言は `src/client/i18n.ts` にあります。言語を足すときは、`en` と同じ形のオブジェクトを追加し、`locales` / `localeNames` / `isLocale` に登録します。CLI は英語のみです。
-- `build/plugins.ts` のプラグイン(`?text` 付きの import でファイルを文字列として読む、UI をまとめて文字列にする)は、Rolldown のビルドと Vitest の両方で使います。
-
-```
-bin/tfview.ts        CLI エントリ(引数解析、生成、ブラウザを開く)
-src/show.ts          入力判別、terraform show -json の実行
-src/tree.ts          plan JSON -> module/resource/line のツリー、行の展開と表示用の入れ子、sensitive のマスク
-src/hash.ts          canonical JSON、キー計算
-src/render.ts        HTML を生成する
-src/document.tsx     HTML 文書(サーバー側の hono/jsx)。値のエスケープは JSX に任せ、<script> に入れる JSON だけ jsonForScript で直列化する
-src/generate.ts      上記をつなぐ
-src/styles.css       CSS
-src/client/app.tsx   UI(hono/jsx/dom)
-src/client/i18n.ts   言語ごとの UI 文言、言語の判定
-src/client/state.ts  確認状態の操作(チェック、折りたたみ、引き継ぎ)。DOM に依存しない純粋な関数
-src/client/storage.ts localStorage の読み書き
-build/plugins.ts     Rolldown / Vitest 共用のプラグイン
-test/                Vitest の単体テスト
-test/fixtures/       検証用の plan.json
-```
-
-`test/fixtures/plan.json` は、組み込みの `terraform_data` リソースだけを使った Terraform プロジェクトから生成したものです。create / update / delete / replace / sensitive / unknown / for_each / ネストした module を含みます。sensitive 変数の値(`hunter2-...`)はテスト用のダミーです。
