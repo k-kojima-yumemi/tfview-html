@@ -49,17 +49,53 @@ async function readHead(path: string, bytes = 64): Promise<Uint8Array> {
     }
 }
 
+/** The `<planfile>` value that means "read the plan JSON from stdin". */
+export const STDIN = "-";
+
+async function readStdin(stdin: NodeJS.ReadableStream): Promise<string> {
+    if ((stdin as NodeJS.ReadStream).isTTY) {
+        throw new UserError(
+            "stdin: no input is piped in",
+            "Pipe the plan JSON in, e.g. `terraform show -json tfplan | tfview -`",
+        );
+    }
+    const chunks: Buffer[] = [];
+    for await (const chunk of stdin) {
+        chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    }
+    const buf = Buffer.concat(chunks);
+    const kind = detectKind(buf.subarray(0, 64));
+    if (kind === "binary") {
+        throw new UserError(
+            "stdin: a binary plan cannot be read from stdin",
+            "Pipe the output of `terraform show -json tfplan`, or pass the plan file path instead of `-`",
+        );
+    }
+    if (kind === undefined) {
+        throw new UserError(
+            "stdin: not recognized as plan JSON",
+            "Pipe the output of `terraform show -json tfplan`",
+        );
+    }
+    return buf.toString("utf8");
+}
+
 export interface LoadOptions {
     /** Terraform-compatible command, e.g. `terraform` or `tofu`. */
     bin: string;
     /** Directory to run `show` in. It must be initialized (`.terraform` present). */
     cwd: string;
+    /** Read when `planfile` is `-`. Default: `process.stdin`. */
+    stdin?: NodeJS.ReadableStream;
 }
 
 export async function loadPlan(
     planfile: string,
     opts: LoadOptions,
 ): Promise<PlanJson> {
+    if (planfile === STDIN) {
+        return parsePlan(await readStdin(opts.stdin ?? process.stdin), "stdin");
+    }
     const kind = detectKind(await readHead(planfile));
     if (kind === undefined) {
         throw new UserError(
@@ -77,7 +113,7 @@ export async function loadPlan(
 export function parsePlan(text: string, source: string): PlanJson {
     let plan: unknown;
     try {
-        plan = JSON.parse(text.replace(/^﻿/, ""));
+        plan = JSON.parse(text.replace(/^\uFEFF/, ""));
     } catch (err) {
         throw new UserError(
             `${source}: not valid JSON (${(err as Error).message})`,

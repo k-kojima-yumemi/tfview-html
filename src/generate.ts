@@ -2,7 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { basename, resolve } from "node:path";
 import { projectId } from "./hash.ts";
 import { renderHtml } from "./render.ts";
-import { loadPlan } from "./show.ts";
+import { loadPlan, STDIN } from "./show.ts";
 import { buildTree, type PlanJson } from "./tree.ts";
 import type { ViewData } from "./types.ts";
 
@@ -46,7 +46,7 @@ export async function generate(
     });
     const data = buildViewData(plan, {
         cwd: opts.cwd,
-        source: basename(opts.planfile),
+        source: opts.planfile === STDIN ? "stdin" : basename(opts.planfile),
         showSensitive: opts.showSensitive ?? false,
     });
     const path = resolve(opts.cwd, opts.out);

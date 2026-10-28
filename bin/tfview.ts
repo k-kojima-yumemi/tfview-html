@@ -7,7 +7,8 @@ import { UserError } from "../src/show.ts";
 
 const usage = `Usage: tfview <planfile> [options]
 
-  <planfile>        binary plan (terraform plan -out=tfplan) or the output of terraform show -json
+  <planfile>        binary plan (terraform plan -out=tfplan) or the output of terraform show -json;
+                    - reads the JSON from stdin (terraform show -json tfplan | tfview -)
 
 Options:
   -o, --out <path>  output path (default: ./tfview.html)

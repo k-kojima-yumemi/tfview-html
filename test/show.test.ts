@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { describe, it } from "vitest";
 import { detectKind, loadPlan, parsePlan, UserError } from "../src/show.ts";
 
@@ -18,7 +19,7 @@ describe("detectKind", () => {
     it("detects JSON, with leading whitespace or BOM", () => {
         assert.equal(detectKind(bytes('{"a":1}')), "json");
         assert.equal(detectKind(bytes('\n  {"a":1}')), "json");
-        assert.equal(detectKind(bytes('﻿{"a":1}')), "json");
+        assert.equal(detectKind(bytes('\uFEFF{"a":1}')), "json");
     });
 
     it("rejects anything else", () => {
@@ -57,6 +58,55 @@ describe("loadPlan", () => {
         await assert.rejects(
             loadPlan("/no/such/tfplan", { bin: "terraform", cwd: "/" }),
             UserError,
+        );
+    });
+
+    it("reads plan JSON from stdin with `-`", async () => {
+        const plan = await loadPlan("-", {
+            bin: "terraform",
+            cwd: "/",
+            stdin: Readable.from([
+                Buffer.from('{"resource_changes":'),
+                Buffer.from("[]}"),
+            ]),
+        });
+        assert.deepEqual(plan.resource_changes, []);
+    });
+
+    it("rejects a binary plan or non-JSON on stdin", async () => {
+        await assert.rejects(
+            loadPlan("-", {
+                bin: "terraform",
+                cwd: "/",
+                stdin: Readable.from([Buffer.from([0x50, 0x4b, 0x03, 0x04])]),
+            }),
+            (err: unknown) => {
+                assert.ok(err instanceof UserError);
+                assert.match(err.message, /binary plan/);
+                return true;
+            },
+        );
+        await assert.rejects(
+            loadPlan("-", {
+                bin: "terraform",
+                cwd: "/",
+                stdin: Readable.from([]),
+            }),
+            UserError,
+        );
+    });
+
+    it("rejects a terminal as stdin", async () => {
+        const tty = Object.defineProperty(Readable.from([]), "isTTY", {
+            value: true,
+        });
+        await assert.rejects(
+            loadPlan("-", { bin: "terraform", cwd: "/", stdin: tty }),
+            (err: unknown) => {
+                assert.ok(err instanceof UserError);
+                assert.match(err.hint ?? "", /tfview -/);
+                return true;
+            },
         );
     });
 });

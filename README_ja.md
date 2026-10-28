@@ -43,11 +43,17 @@ terraform show -json tfplan > plan.json
 tfview plan.json
 ```
 
+`-` を渡すと、標準入力から JSON を読みます。
+
+```sh
+terraform show -json tfplan | tfview -
+```
+
 ### オプション
 
 | オプション | 説明 |
 |---|---|
-| `<planfile>` | バイナリ plan、または `terraform show -json` の出力。先頭バイトで判別します(`PK` ならバイナリ、`{` なら JSON) |
+| `<planfile>` | バイナリ plan、または `terraform show -json` の出力。先頭バイトで判別します(`PK` ならバイナリ、`{` なら JSON)。`-` なら標準入力から JSON を読みます(バイナリ plan は不可) |
 | `-o, --out <path>` | 出力先。既定は `./tfview.html` |
 | `--bin <name>` | 実行する Terraform のコマンド。既定は `terraform`(例: `--bin tofu`) |
 | `--no-open` | 生成のみで、ブラウザを開かない |

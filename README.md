@@ -43,11 +43,17 @@ terraform show -json tfplan > plan.json
 tfview plan.json
 ```
 
+Pass `-` to read the JSON from stdin.
+
+```sh
+terraform show -json tfplan | tfview -
+```
+
 ### Options
 
 | Option | Description |
 |---|---|
-| `<planfile>` | A binary plan, or the output of `terraform show -json`. Detected from the first bytes (`PK` is a binary plan, `{` is JSON) |
+| `<planfile>` | A binary plan, or the output of `terraform show -json`. Detected from the first bytes (`PK` is a binary plan, `{` is JSON). `-` reads JSON from stdin (binary plans are not accepted there) |
 | `-o, --out <path>` | Output path. Default: `./tfview.html` |
 | `--bin <name>` | Terraform command to run. Default: `terraform` (e.g. `--bin tofu`) |
 | `--no-open` | Generate only; do not open the browser |
