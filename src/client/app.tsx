@@ -176,7 +176,14 @@ const CopyButton: FC<{ text: string; label: string }> = ({ text, label }) => {
             onClick={async () => setCopied(await copyText(text))}
         >
             {copied ? (
-                "✓"
+                <svg
+                    viewBox="0 0 16 16"
+                    width="14"
+                    height="14"
+                    aria-hidden="true"
+                >
+                    <path d="M3 8.5l3 3 7-7" />
+                </svg>
             ) : (
                 <svg
                     viewBox="0 0 16 16"
@@ -601,7 +608,14 @@ const NodeHead: FC<{
                 aria-label={t.toggleFold}
                 tabindex={foldable ? 0 : -1}
             >
-                ›
+                <svg
+                    viewBox="0 0 16 16"
+                    width="12"
+                    height="12"
+                    aria-hidden="true"
+                >
+                    <path d="M6 3.5l4.5 4.5L6 12.5" />
+                </svg>
             </button>
             <Checkbox
                 checked={all}
