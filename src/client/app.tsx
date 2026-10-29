@@ -25,6 +25,7 @@ import {
     localeNames,
     locales,
 } from "./i18n.ts";
+import { CaretIcon, CheckIcon, CopyIcon } from "./icons.tsx";
 import {
     buildModel,
     confirmedCount,
@@ -175,26 +176,7 @@ const CopyButton: FC<{ text: string; label: string }> = ({ text, label }) => {
             aria-label={label}
             onClick={async () => setCopied(await copyText(text))}
         >
-            {copied ? (
-                <svg
-                    viewBox="0 0 16 16"
-                    width="14"
-                    height="14"
-                    aria-hidden="true"
-                >
-                    <path d="M3 8.5l3 3 7-7" />
-                </svg>
-            ) : (
-                <svg
-                    viewBox="0 0 16 16"
-                    width="14"
-                    height="14"
-                    aria-hidden="true"
-                >
-                    <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
-                    <path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5" />
-                </svg>
-            )}
+            {copied ? <CheckIcon /> : <CopyIcon />}
         </button>
     );
 };
@@ -608,14 +590,7 @@ const NodeHead: FC<{
                 aria-label={t.toggleFold}
                 tabindex={foldable ? 0 : -1}
             >
-                <svg
-                    viewBox="0 0 16 16"
-                    width="12"
-                    height="12"
-                    aria-hidden="true"
-                >
-                    <path d="M6 3.5l4.5 4.5L6 12.5" />
-                </svg>
+                <CaretIcon />
             </button>
             <Checkbox
                 checked={all}
