@@ -1,0 +1,613 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.13.4",
+  "resource_changes": [
+    {
+      "address": "aws_instance.web",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-0a1b2c3d4e5f60718",
+          "arn": "arn:aws:ec2:ap-northeast-1:123456789012:instance/i-0123456789abcdef0",
+          "id": "i-0123456789abcdef0",
+          "instance_type": "t3.small",
+          "monitoring": false,
+          "subnet_id": "subnet-0aa11bb22cc33dd44",
+          "vpc_security_group_ids": [
+            "sg-0123abcd4567ef890"
+          ],
+          "root_block_device": [
+            {
+              "encrypted": true,
+              "volume_size": 20,
+              "volume_type": "gp3"
+            }
+          ],
+          "tags": {
+            "Name": "web",
+            "Env": "stg",
+            "Owner": "platform"
+          },
+          "tags_all": {
+            "Name": "web",
+            "Env": "stg",
+            "Owner": "platform"
+          }
+        },
+        "after": {
+          "ami": "ami-0a1b2c3d4e5f60718",
+          "arn": "arn:aws:ec2:ap-northeast-1:123456789012:instance/i-0123456789abcdef0",
+          "id": "i-0123456789abcdef0",
+          "instance_type": "t3.medium",
+          "monitoring": true,
+          "subnet_id": "subnet-0aa11bb22cc33dd44",
+          "vpc_security_group_ids": [
+            "sg-0123abcd4567ef890"
+          ],
+          "root_block_device": [
+            {
+              "encrypted": true,
+              "volume_size": 30,
+              "volume_type": "gp3"
+            }
+          ],
+          "tags": {
+            "Name": "web",
+            "Env": "stg",
+            "Owner": "platform",
+            "CostCenter": "web-1234"
+          },
+          "tags_all": {
+            "Name": "web",
+            "Env": "stg",
+            "Owner": "platform",
+            "CostCenter": "web-1234"
+          }
+        },
+        "after_unknown": {},
+        "before_sensitive": {
+          "root_block_device": [
+            {}
+          ],
+          "tags": {},
+          "tags_all": {},
+          "vpc_security_group_ids": [
+            false
+          ]
+        },
+        "after_sensitive": {
+          "root_block_device": [
+            {}
+          ],
+          "tags": {},
+          "tags_all": {},
+          "vpc_security_group_ids": [
+            false
+          ]
+        }
+      }
+    },
+    {
+      "address": "aws_security_group.web",
+      "mode": "managed",
+      "type": "aws_security_group",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "arn": "arn:aws:ec2:ap-northeast-1:123456789012:security-group/sg-0123abcd4567ef890",
+          "id": "sg-0123abcd4567ef890",
+          "name": "web",
+          "description": "Web server",
+          "vpc_id": "vpc-0fedcba9876543210",
+          "ingress": [
+            {
+              "description": "HTTP",
+              "from_port": 80,
+              "to_port": 80,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.0.0.0/16",
+                "10.1.0.0/16"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            },
+            {
+              "description": "HTTPS",
+              "from_port": 443,
+              "to_port": 443,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.0.0.0/16",
+                "10.1.0.0/16"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            },
+            {
+              "description": "SSH from bastion",
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.0.10.5/32"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            }
+          ],
+          "tags": {
+            "Name": "web"
+          },
+          "tags_all": {
+            "Name": "web"
+          }
+        },
+        "after": {
+          "arn": "arn:aws:ec2:ap-northeast-1:123456789012:security-group/sg-0123abcd4567ef890",
+          "id": "sg-0123abcd4567ef890",
+          "name": "web",
+          "description": "Web server",
+          "vpc_id": "vpc-0fedcba9876543210",
+          "ingress": [
+            {
+              "description": "HTTPS",
+              "from_port": 443,
+              "to_port": 443,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.1.0.0/16",
+                "10.0.0.0/16",
+                "10.2.0.0/16"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            },
+            {
+              "description": "HTTP",
+              "from_port": 80,
+              "to_port": 80,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.0.0.0/16",
+                "10.1.0.0/16"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            },
+            {
+              "description": "SSH from bastion",
+              "from_port": 22,
+              "to_port": 22,
+              "protocol": "tcp",
+              "cidr_blocks": [
+                "10.0.10.5/32"
+              ],
+              "ipv6_cidr_blocks": [],
+              "prefix_list_ids": [],
+              "security_groups": [],
+              "self": false
+            }
+          ],
+          "tags": {
+            "Name": "web"
+          },
+          "tags_all": {
+            "Name": "web"
+          }
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_db_instance.main",
+      "mode": "managed",
+      "type": "aws_db_instance",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "before": {
+          "address": "app-db.abcdefghijkl.ap-northeast-1.rds.amazonaws.com",
+          "allocated_storage": 50,
+          "arn": "arn:aws:rds:ap-northeast-1:123456789012:db:app-db",
+          "engine": "postgres",
+          "engine_version": "16.4",
+          "id": "db-ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+          "identifier": "app-db",
+          "instance_class": "db.t4g.medium",
+          "password": "demo-password-old",
+          "storage_encrypted": false,
+          "username": "app",
+          "tags": {
+            "Name": "app-db"
+          }
+        },
+        "after": {
+          "allocated_storage": 50,
+          "engine": "postgres",
+          "engine_version": "16.6",
+          "identifier": "app-db",
+          "instance_class": "db.t4g.medium",
+          "password": "demo-password-old",
+          "storage_encrypted": true,
+          "username": "app",
+          "tags": {
+            "Name": "app-db"
+          }
+        },
+        "after_unknown": {
+          "address": true,
+          "arn": true,
+          "id": true,
+          "tags": {}
+        },
+        "before_sensitive": {
+          "password": true,
+          "tags": {}
+        },
+        "after_sensitive": {
+          "password": true,
+          "tags": {}
+        },
+        "replace_paths": [
+          [
+            "storage_encrypted"
+          ]
+        ]
+      },
+      "action_reason": "replace_because_cannot_update"
+    },
+    {
+      "address": "aws_iam_role_policy.deploy",
+      "mode": "managed",
+      "type": "aws_iam_role_policy",
+      "name": "deploy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "id": "deploy:deploy",
+          "name": "deploy",
+          "role": "deploy",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"Deploy\",\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\"],\"Resource\":[\"arn:aws:s3:::app-artifacts-123456789012/*\"]}]}"
+        },
+        "after": {
+          "id": "deploy:deploy",
+          "name": "deploy",
+          "role": "deploy",
+          "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Sid\":\"Deploy\",\"Effect\":\"Allow\",\"Action\":[\"s3:GetObject\",\"s3:PutObject\",\"s3:DeleteObject\"],\"Resource\":[\"arn:aws:s3:::app-artifacts-123456789012/*\",\"arn:aws:s3:::app-releases-123456789012/*\"]}]}"
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_s3_bucket.logs",
+      "mode": "managed",
+      "type": "aws_s3_bucket",
+      "name": "logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "arn": "arn:aws:s3:::app-logs-123456789012",
+          "bucket": "app-logs-123456789012",
+          "force_destroy": false,
+          "id": "app-logs-123456789012",
+          "tags": {
+            "Name": "app-logs"
+          },
+          "tags_all": {
+            "Name": "app-logs"
+          }
+        },
+        "after": {
+          "arn": "arn:aws:s3:::app-logs-123456789012",
+          "bucket": "app-logs-123456789012",
+          "force_destroy": false,
+          "id": "app-logs-123456789012",
+          "tags": {
+            "Name": "app-logs"
+          },
+          "tags_all": {
+            "Name": "app-logs"
+          }
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {},
+        "importing": {
+          "id": "app-logs-123456789012"
+        }
+      }
+    },
+    {
+      "address": "aws_cloudwatch_log_group.web",
+      "previous_address": "aws_cloudwatch_log_group.this",
+      "mode": "managed",
+      "type": "aws_cloudwatch_log_group",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "arn": "arn:aws:logs:ap-northeast-1:123456789012:log-group:/app/web",
+          "id": "/app/web",
+          "name": "/app/web",
+          "retention_in_days": 7,
+          "tags": {},
+          "tags_all": {}
+        },
+        "after": {
+          "arn": "arn:aws:logs:ap-northeast-1:123456789012:log-group:/app/web",
+          "id": "/app/web",
+          "name": "/app/web",
+          "retention_in_days": 30,
+          "tags": {},
+          "tags_all": {}
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "aws_sqs_queue.legacy",
+      "mode": "managed",
+      "type": "aws_sqs_queue",
+      "name": "legacy",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "arn": "arn:aws:sqs:ap-northeast-1:123456789012:legacy-jobs",
+          "id": "https://sqs.ap-northeast-1.amazonaws.com/123456789012/legacy-jobs",
+          "name": "legacy-jobs",
+          "message_retention_seconds": 345600,
+          "visibility_timeout_seconds": 30,
+          "tags": {}
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.network.aws_subnet.private[\"d\"]",
+      "module_address": "module.network",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "private",
+      "index": "d",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "availability_zone": "ap-northeast-1d",
+          "cidr_block": "10.0.4.0/24",
+          "map_public_ip_on_launch": false,
+          "vpc_id": "vpc-0fedcba9876543210",
+          "tags": {
+            "Name": "private-d"
+          },
+          "tags_all": {
+            "Name": "private-d"
+          }
+        },
+        "after_unknown": {
+          "arn": true,
+          "id": true,
+          "tags": {},
+          "tags_all": {}
+        },
+        "before_sensitive": false,
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "module.network.aws_subnet.private[\"c\"]",
+      "module_address": "module.network",
+      "mode": "managed",
+      "type": "aws_subnet",
+      "name": "private",
+      "index": "c",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "arn": "arn:aws:ec2:ap-northeast-1:123456789012:subnet/subnet-0c0c0c0c0c0c0c0c0",
+          "availability_zone": "ap-northeast-1c",
+          "cidr_block": "10.0.3.0/24",
+          "id": "subnet-0c0c0c0c0c0c0c0c0",
+          "map_public_ip_on_launch": false,
+          "vpc_id": "vpc-0fedcba9876543210",
+          "tags": {
+            "Name": "private-c"
+          },
+          "tags_all": {
+            "Name": "private-c"
+          }
+        },
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.ci.aws_codebuild_project.app",
+      "module_address": "module.ci",
+      "mode": "managed",
+      "type": "aws_codebuild_project",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "arn": "arn:aws:codebuild:ap-northeast-1:123456789012:project/app-build",
+          "id": "arn:aws:codebuild:ap-northeast-1:123456789012:project/app-build",
+          "name": "app-build",
+          "build_timeout": 30,
+          "service_role": "arn:aws:iam::123456789012:role/codebuild",
+          "environment": [
+            {
+              "compute_type": "BUILD_GENERAL1_SMALL",
+              "image": "aws/codebuild/amazonlinux-x86_64-standard:5.0",
+              "privileged_mode": false,
+              "type": "LINUX_CONTAINER",
+              "environment_variable": [
+                {
+                  "name": "APP_ENV",
+                  "type": "PLAINTEXT",
+                  "value": "stg"
+                },
+                {
+                  "name": "NODE_VERSION",
+                  "type": "PLAINTEXT",
+                  "value": "22"
+                },
+                {
+                  "name": "DB_PASSWORD",
+                  "type": "PARAMETER_STORE",
+                  "value": "/app/db/password"
+                },
+                {
+                  "name": "SENTRY_DSN",
+                  "type": "PARAMETER_STORE",
+                  "value": "/app/sentry/dsn"
+                }
+              ]
+            }
+          ],
+          "tags": {}
+        },
+        "after": {
+          "arn": "arn:aws:codebuild:ap-northeast-1:123456789012:project/app-build",
+          "id": "arn:aws:codebuild:ap-northeast-1:123456789012:project/app-build",
+          "name": "app-build",
+          "build_timeout": 60,
+          "service_role": "arn:aws:iam::123456789012:role/codebuild",
+          "environment": [
+            {
+              "compute_type": "BUILD_GENERAL1_SMALL",
+              "image": "aws/codebuild/amazonlinux-x86_64-standard:5.0",
+              "privileged_mode": false,
+              "type": "LINUX_CONTAINER",
+              "environment_variable": [
+                {
+                  "name": "APP_ENV",
+                  "type": "PLAINTEXT",
+                  "value": "stg"
+                },
+                {
+                  "name": "DB_PASSWORD",
+                  "type": "PARAMETER_STORE",
+                  "value": "/app/db/password"
+                },
+                {
+                  "name": "NODE_VERSION",
+                  "type": "PLAINTEXT",
+                  "value": "24"
+                },
+                {
+                  "name": "SENTRY_DSN",
+                  "type": "PARAMETER_STORE",
+                  "value": "/app/sentry/dsn"
+                }
+              ]
+            }
+          ],
+          "tags": {}
+        },
+        "after_unknown": {},
+        "before_sensitive": {},
+        "after_sensitive": {}
+      }
+    },
+    {
+      "address": "module.ci.aws_ssm_parameter.sentry_dsn",
+      "module_address": "module.ci",
+      "mode": "managed",
+      "type": "aws_ssm_parameter",
+      "name": "sentry_dsn",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "arn": "arn:aws:ssm:ap-northeast-1:123456789012:parameter/app/sentry/dsn",
+          "id": "/app/sentry/dsn",
+          "name": "/app/sentry/dsn",
+          "type": "SecureString",
+          "value": "https://old@example.invalid/1",
+          "version": 3,
+          "tags": {}
+        },
+        "after": {
+          "arn": "arn:aws:ssm:ap-northeast-1:123456789012:parameter/app/sentry/dsn",
+          "id": "/app/sentry/dsn",
+          "name": "/app/sentry/dsn",
+          "type": "SecureString",
+          "value": "https://new@example.invalid/1",
+          "tags": {}
+        },
+        "after_unknown": {
+          "version": true,
+          "tags": {}
+        },
+        "before_sensitive": {
+          "value": true,
+          "tags": {}
+        },
+        "after_sensitive": {
+          "value": true,
+          "tags": {}
+        }
+      }
+    }
+  ]
+}

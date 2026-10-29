@@ -5,6 +5,8 @@ English | [日本語](README_ja.md)
 A review tool for Terraform plan diffs. Like "Viewed" on a GitHub PR, you mark changes as viewed and fold them away.
 It generates a single static HTML file from a plan and opens it in the browser.
 
+![tfview showing a plan with some resources viewed and folded](docs/screenshot.png)
+
 - Viewed state is stored in the browser. After a re-plan, lines with identical content stay viewed, and only the lines that changed show up open.
 - You can mark things as viewed at any level: module, resource or line. Marking a parent folds everything under it.
 - No server or resident process. The process exits once the file is generated.

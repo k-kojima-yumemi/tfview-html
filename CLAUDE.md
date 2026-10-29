@@ -35,6 +35,10 @@ Run `npm run format` and then `npm run ci` and `npm test` before calling a chang
   - No invisible or fragile non-ASCII characters in source; use escapes such as `﻿`.
 - Errors the user can fix are thrown as `UserError` (message and optional hint); the CLI prints them without a stack trace.
 
+## Screenshot
+
+`docs/screenshot.png` (used in both READMEs) is rendered from `docs/demo-plan.json`, a hand-written plan with dummy values. Never build it from a real project's plan. When a UI change makes the screenshot outdated, say so.
+
 ## Test fixture
 
 `test/fixtures/plan.json` was generated from a Terraform project that uses only the built-in `terraform_data` resource. It covers create / update / delete / replace / sensitive / unknown / for_each / nested modules. The sensitive value (`hunter2-...`) is a dummy.
