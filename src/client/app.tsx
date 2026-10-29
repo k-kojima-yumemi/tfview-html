@@ -1,5 +1,5 @@
 // Browser side of tfview. Bundled by Rolldown (build/plugins.ts) and inlined by document.tsx.
-import type { Child } from "hono/jsx";
+import type { Child, FC } from "hono/jsx";
 import {
     render,
     useEffect,
@@ -113,29 +113,29 @@ function opClass(badge: string): string {
     }
 }
 
-function Checkbox(props: {
+const Checkbox: FC<{
     checked: boolean;
     indeterminate: boolean;
     class?: string;
     label: string;
     onChange: () => void;
-}) {
+}> = ({ checked, indeterminate, class: className, label, onChange }) => {
     const ref = useRef<HTMLInputElement>(null);
     // `indeterminate` is a DOM property only; there is no attribute for it.
     useLayoutEffect(() => {
-        if (ref.current) ref.current.indeterminate = props.indeterminate;
+        if (ref.current) ref.current.indeterminate = indeterminate;
     });
     return (
         <input
             ref={ref}
             type="checkbox"
-            class={props.class}
-            checked={props.checked}
-            aria-label={props.label}
-            onChange={props.onChange}
+            class={className}
+            checked={checked}
+            aria-label={label}
+            onChange={onChange}
         />
     );
-}
+};
 
 /** Joins class names, skipping falsy ones. Each argument is one class, so nothing relies on leading spaces. */
 function classNames(...names: (string | false | undefined)[]): string {
@@ -149,27 +149,18 @@ function lineAt(res: ViewResource, i: number): ViewLine {
     return line;
 }
 
-/** Copies with the Clipboard API, or with a hidden textarea where that API is unavailable. */
+/** Copies with the Clipboard API. Where that API is unavailable or refuses, nothing is copied. */
 async function copyText(text: string): Promise<boolean> {
     try {
         await navigator.clipboard.writeText(text);
         return true;
     } catch {
-        const area = document.createElement("textarea");
-        area.value = text;
-        area.setAttribute("readonly", "");
-        area.style.position = "fixed";
-        area.style.opacity = "0";
-        document.body.append(area);
-        area.select();
-        const ok = document.execCommand("copy");
-        area.remove();
-        return ok;
+        return false;
     }
 }
 
 /** Copies `text` without folding the header it sits in, and shows a check mark for a moment. */
-function CopyButton({ text, label }: { text: string; label: string }) {
+const CopyButton: FC<{ text: string; label: string }> = ({ text, label }) => {
     const [copied, setCopied] = useState(false);
     useEffect(() => {
         if (!copied) return;
@@ -199,10 +190,10 @@ function CopyButton({ text, label }: { text: string; label: string }) {
             )}
         </button>
     );
-}
+};
 
 /** A value, clipped when long or multi-line; click to show it all. */
-function Value({ text }: { text: string }) {
+const Value: FC<{ text: string }> = ({ text }) => {
     const [expanded, setExpanded] = useState(false);
     const firstBreak = text.indexOf("\n");
     if (text.length <= clipLength && firstBreak === -1)
@@ -223,33 +214,33 @@ function Value({ text }: { text: string }) {
             {expanded ? text : short}
         </button>
     );
-}
+};
 
-function Side({ line, side }: { line: ViewLine; side: "before" | "after" }) {
+const Side: FC<{ line: ViewLine; side: "before" | "after" }> = ({
+    line,
+    side,
+}) => {
     if (side === "after" && line.unknown)
         return <span class="val-unknown">(known after apply)</span>;
     // Values of sensitive lines are only present when generated with --show-sensitive.
     if (line.sensitive && line[side] === undefined)
         return <span class="val-sensitive">(sensitive)</span>;
     return <Value text={line[side] ?? "null"} />;
-}
+};
 
-function Code({ depth, children }: { depth: number; children?: Child }) {
+const Code: FC<{ depth: number; children?: Child }> = ({ depth, children }) => {
     return (
         <span class="code" style={`--d:${depth}`}>
             {children}
         </span>
     );
-}
+};
 
 /** `label = ` with the label padded so that `=` lines up within a block, as in `terraform plan`. */
-function Assign({
-    label,
-    width,
-}: {
+const Assign: FC<{
     label: string | undefined;
     width: number;
-}) {
+}> = ({ label, width }) => {
     if (label === undefined) return null;
     return (
         <>
@@ -257,20 +248,15 @@ function Assign({
             <span class="eq"> = </span>
         </>
     );
-}
+};
 
 /** A read-only row (braces, context, comments): a blank checkbox column keeps it aligned with lines. */
-function PlainRow({
-    cls,
-    sign,
-    done,
-    children,
-}: {
+const PlainRow: FC<{
     cls: string;
     sign?: string;
     done?: boolean;
     children?: Child;
-}) {
+}> = ({ cls, sign, done, children }) => {
     return (
         <div class={classNames("row", cls, done && "done")}>
             <span class="cb cb-space" />
@@ -278,7 +264,7 @@ function PlainRow({
             {children}
         </div>
     );
-}
+};
 
 function hiddenComments(hidden: Hidden | undefined): string[] {
     if (!hidden) return [];
@@ -329,7 +315,7 @@ function actionText(res: ViewResource): string {
 // ---------------------------------------------------------------------------
 // Lines, laid out Terraform plan style
 
-function LineRow(props: {
+const LineRow: FC<{
     ctx: Ctx;
     res: ViewResource;
     line: ViewLine;
@@ -337,8 +323,7 @@ function LineRow(props: {
     width: number;
     depth: number;
     inList: boolean;
-}) {
-    const { ctx, line } = props;
+}> = ({ ctx, line, label, width, depth, inList }) => {
     const node = nodeOf(ctx.model, lineNodeId(line.key));
     const done = ctx.state.confirmed.has(line.key);
     return (
@@ -360,8 +345,8 @@ function LineRow(props: {
                 onChange={() => ctx.onToggle(node)}
             />
             <span class="sign">{line.op}</span>
-            <Code depth={props.depth}>
-                <Assign label={props.label} width={props.width} />
+            <Code depth={depth}>
+                <Assign label={label} width={width} />
                 {line.op === "+" ? (
                     <Side line={line} side="after" />
                 ) : line.op === "-" ? (
@@ -373,7 +358,7 @@ function LineRow(props: {
                         <Side line={line} side="after" />
                     </>
                 )}
-                {props.inList && <span class="punct">,</span>}
+                {inList && <span class="punct">,</span>}
                 {line.forcesReplacement && (
                     <span class="tag tag-force">forces replacement</span>
                 )}
@@ -386,7 +371,7 @@ function LineRow(props: {
             </Code>
         </div>
     );
-}
+};
 
 /** A list of plain values that can be compared by value, ignoring order. */
 function isValueList(it: ReorderItem): boolean {
@@ -404,7 +389,7 @@ function reorderOptionText(o: ReorderOption): string {
         : t.compareByField(o.field);
 }
 
-function Items(props: {
+const Items: FC<{
     ctx: Ctx;
     res: ViewResource;
     items: DisplayItem[];
@@ -412,10 +397,9 @@ function Items(props: {
     inList: boolean;
     /** Width to pad labels to; the default is the widest label among `items`. */
     width?: number;
-}) {
-    const { ctx, res, items, depth, inList } = props;
+}> = ({ ctx, res, items, depth, inList, width: givenWidth }) => {
     const width =
-        props.width ??
+        givenWidth ??
         Math.max(
             0,
             ...items.map((it) =>
@@ -559,19 +543,18 @@ function Items(props: {
             })}
         </>
     );
-}
+};
 
 // ---------------------------------------------------------------------------
 // Modules and resources
 
-function NodeHead(props: {
+const NodeHead: FC<{
     ctx: Ctx;
     node: TreeNode;
     foldable: boolean;
     label: string;
     children?: Child;
-}) {
-    const { ctx, node } = props;
+}> = ({ ctx, node, foldable, label, children }) => {
     const { state } = ctx;
     const total = node.units.length;
     const done = confirmedCount(state, node);
@@ -597,7 +580,7 @@ function NodeHead(props: {
 
     const onClick = (e: MouseEvent) => {
         const target = e.target as HTMLElement;
-        if (target.closest("input, .copy") || !props.foldable) return;
+        if (target.closest("input, .copy") || !foldable) return;
         // Clicking the caret or the header text folds/unfolds, unless the user is selecting text.
         if (
             !target.closest(".caret") &&
@@ -614,19 +597,19 @@ function NodeHead(props: {
         <div class="head" onClick={onClick}>
             <button
                 type="button"
-                class={classNames("caret", !props.foldable && "hidden")}
+                class={classNames("caret", !foldable && "hidden")}
                 aria-label={t.toggleFold}
-                tabindex={props.foldable ? 0 : -1}
+                tabindex={foldable ? 0 : -1}
             >
                 ›
             </button>
             <Checkbox
                 checked={all}
                 indeterminate={done > 0 && !all}
-                label={t.markViewed(props.label)}
+                label={t.markViewed(label)}
                 onChange={() => ctx.onToggle(node)}
             />
-            {props.children}
+            {children}
             <span class="spacer" />
             {updatedN > 0 && (
                 <span class="tag tag-updated">{t.updatedCount(updatedN)}</span>
@@ -637,7 +620,7 @@ function NodeHead(props: {
             <span class="status">{status}</span>
         </div>
     );
-}
+};
 
 function nodeClass(ctx: Ctx, node: TreeNode, base: string): string {
     return classNames(
@@ -648,7 +631,7 @@ function nodeClass(ctx: Ctx, node: TreeNode, base: string): string {
     );
 }
 
-function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
+const ResourceView: FC<{ ctx: Ctx; res: ViewResource }> = ({ ctx, res }) => {
     const node = nodeOf(ctx.model, res.id);
     const hasBody =
         res.lines.length > 0 ||
@@ -716,9 +699,9 @@ function ResourceView({ ctx, res }: { ctx: Ctx; res: ViewResource }) {
             )}
         </div>
     );
-}
+};
 
-function Counts({ resources }: { resources: ViewResource[] }) {
+const Counts: FC<{ resources: ViewResource[] }> = ({ resources }) => {
     const count = (b: string) => resources.filter((r) => r.badge === b).length;
     const parts: [string, string, number][] = [
         ["c-add", "+", count("+")],
@@ -740,9 +723,9 @@ function Counts({ resources }: { resources: ViewResource[] }) {
                 ))}
         </span>
     );
-}
+};
 
-function ModuleView({ ctx, mod }: { ctx: Ctx; mod: ViewModule }) {
+const ModuleView: FC<{ ctx: Ctx; mod: ViewModule }> = ({ ctx, mod }) => {
     const node = nodeOf(ctx.model, mod.id);
     return (
         <section class={nodeClass(ctx, node, "module")} data-id={mod.id}>
@@ -757,18 +740,15 @@ function ModuleView({ ctx, mod }: { ctx: Ctx; mod: ViewModule }) {
             </div>
         </section>
     );
-}
+};
 
 // ---------------------------------------------------------------------------
 // App
 
-function App({
-    data,
-    initial,
-}: {
+const App: FC<{
     data: ViewData;
     initial: ReturnType<typeof restore>;
-}) {
+}> = ({ data, initial }) => {
     const stateKey = `tfview:${data.projectId}`;
     // Not saved: every list starts out matched by position, and the viewer switches the ones it wants to read in another order.
     const [views, setViews] = useState<Views>(new Map());
@@ -935,7 +915,7 @@ function App({
             </main>
         </>
     );
-}
+};
 
 /** Height of a sticky header layer, from the CSS custom property that positions it. */
 function cssPixels(name: string): number {

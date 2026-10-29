@@ -3,6 +3,7 @@
 // Text and attributes are escaped by JSX; the only content inserted raw is
 // what JSX cannot escape correctly: the contents of <style> and <script>.
 import { raw } from "hono/html";
+import type { FC } from "hono/jsx";
 import type { ViewData } from "./types.ts";
 
 /**
@@ -33,15 +34,11 @@ function assertScriptSafe(name: string, code: string): string {
     return code;
 }
 
-export function Document({
-    data,
-    css,
-    client,
-}: {
+export const Document: FC<{
     data: ViewData;
     css: string;
     client: string;
-}) {
+}> = ({ data, css, client }) => {
     return (
         <html lang="en">
             <head>
@@ -65,4 +62,4 @@ export function Document({
             </body>
         </html>
     );
-}
+};

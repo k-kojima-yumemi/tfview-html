@@ -28,6 +28,7 @@ Run `npm run format` and then `npm run ci` and `npm test` before calling a chang
 ## Conventions
 
 - UI text lives in `src/client/i18n.ts` (English and Japanese). Add every new string to both. To add a language, add an object shaped like `en` and register it in `locales`, `localeNames` and `isLocale`. The CLI is English only.
+- Define components as `const Name: FC<Props> = (props) => { ... };` (`FC` from `hono/jsx`), not `function`, so the type fixes what a component returns. Render a component with JSX or `jsx()`, never by calling it directly.
 - Use camelCase names. Where Terraform's JSON field names (`resource_changes`, ...) are needed, suppress `useNamingConvention` with a `biome-ignore` comment, as existing files do.
 - Write code that `biome check --unsafe` cannot change in meaning. If an autofix breaks something, fix the code, not the tool.
   - No non-null assertions (`!`); use throwing lookups such as `nodeOf` / `requireElement`, or the test helpers `at` / `lineAtPath`.
