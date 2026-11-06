@@ -76,7 +76,10 @@ export async function generate(
     });
     const data = buildViewData(plan, {
         cwd: opts.cwd,
-        source: opts.planfile === STDIN ? "stdin" : basename(opts.planfile),
+        source:
+            opts.planfile === STDIN
+                ? (opts.projectName ?? basename(resolve(opts.cwd)))
+                : basename(opts.planfile),
         showSensitive: opts.showSensitive ?? false,
         projectName: opts.projectName,
     });

@@ -51,6 +51,8 @@ Pass `-` to read the JSON from stdin.
 terraform show -json tfplan | tfview -
 ```
 
+With stdin input there is no file name, so the page title and header show the `--project-id` name, or the name of the current directory when it is not given.
+
 With `-o -` the HTML goes to stdout, so you can pass it straight to another command, such as uploading it to S3.
 
 ```sh
