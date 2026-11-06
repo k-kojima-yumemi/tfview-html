@@ -11,6 +11,9 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment:
+      name: npm
+      deployment: true
     permissions:
       contents: read
       id-token: write
@@ -29,4 +32,5 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run ci
       - run: npm test
+      - run: npm run build
       - run: npm stage publish
