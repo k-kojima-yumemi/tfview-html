@@ -1,5 +1,5 @@
 {
-  "name": "tfview",
+  "name": "@k-kojima-yumemi/tfview",
   "version": "0.1.0",
   "description": "Review Terraform plan diffs with GitHub-style \"Viewed\" checkboxes that survive re-plans",
   "type": "module",
@@ -19,7 +19,7 @@
     "prepare": "npm run build"
   },
   "engines": {
-    "node": ">=24"
+    "node": "^22.23.4 || ^24.22.2 || >=26.13.0"
   },
   "keywords": [
     "terraform",
@@ -29,8 +29,19 @@
     "diff"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/k-kojima-yumemi/tfview-html.git"
+  },
+  "homepage": "https://github.com/k-kojima-yumemi/tfview-html",
+  "bugs": {
+    "url": "https://github.com/k-kojima-yumemi/tfview-html/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "volta": {
-    "node": "24.22.1"
+    "node": "24.22.2"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",

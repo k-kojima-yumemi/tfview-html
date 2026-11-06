@@ -14,7 +14,21 @@ plan から静的な HTML を1枚生成し、ブラウザで開きます。
 
 ## インストール
 
-npm には公開していません。手元でビルドして使います。必要なのは Node.js 24 以上です。
+必要なのは Node.js 22、24、または 26 以上です。
+
+インストールせず、npx でそのまま実行できます。
+
+```sh
+npx @k-kojima-yumemi/tfview tfplan
+```
+
+グローバルにインストールして `tfview` コマンドとして使うこともできます。
+
+```sh
+npm install -g @k-kojima-yumemi/tfview
+```
+
+ソースからビルドして使う場合は次のとおりです。
 
 ```sh
 git clone git@github.com:k-kojima-yumemi/tfview-html.git

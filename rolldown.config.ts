@@ -6,7 +6,7 @@ export default defineConfig({
     input: "bin/tfview.ts",
     platform: "node",
     plugins: [textImport(), clientBundle()],
-    transform: { target: "node24" },
+    transform: { target: "node22" },
     output: {
         file: "dist/tfview.js",
         format: "esm",

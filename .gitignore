@@ -5,3 +5,4 @@ tfplan
 # Real plans can contain account IDs and secrets.
 sample/
 tfview-spec.md
+.idea

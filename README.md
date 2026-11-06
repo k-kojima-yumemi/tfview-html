@@ -14,7 +14,21 @@ It generates a single static HTML file from a plan and opens it in the browser.
 
 ## Install
 
-Not published to npm. Build it locally. Node.js 24 or later is required.
+Node.js 22, 24, or 26 and later is required.
+
+Run it without installing, with npx:
+
+```sh
+npx @k-kojima-yumemi/tfview tfplan
+```
+
+Or install it globally to get the `tfview` command:
+
+```sh
+npm install -g @k-kojima-yumemi/tfview
+```
+
+To build from source instead:
 
 ```sh
 git clone git@github.com:k-kojima-yumemi/tfview-html.git
