@@ -1,6 +1,6 @@
 {
   "name": "@k-kojima-yumemi/tfview",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Review Terraform plan diffs with GitHub-style \"Viewed\" checkboxes that survive re-plans",
   "type": "module",
   "bin": {

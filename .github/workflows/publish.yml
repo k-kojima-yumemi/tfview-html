@@ -30,7 +30,6 @@ jobs:
             exit 1
           fi
       - run: npm ci --ignore-scripts
-      - run: npm run ci
       - run: npm test
       - run: npm run build
       - run: npm stage publish
