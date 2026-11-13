@@ -41,7 +41,7 @@
     "access": "public"
   },
   "volta": {
-    "node": "24.22.2"
+    "node": "24.22.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.3",
